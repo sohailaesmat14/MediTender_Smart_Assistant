@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using MediTender.API.Data;
+using MediTender.API.Services; 
 
 
 var builder = WebApplication.CreateBuilder(args);
+
 builder.Services.AddOpenApi();
-
-
+builder.Services.AddScoped<IPdfParsingService, PdfParsingService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
