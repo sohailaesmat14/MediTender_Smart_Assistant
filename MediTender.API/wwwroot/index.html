@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تجربة RAG - MediTender</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background-color: #f4f7f6; }
+        .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; text-align: center; }
+        .upload-section { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+        input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        #result { background-color: #e9ecef; padding: 20px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; max-height: 500px; overflow-y: auto; border: 1px solid #ced4da; line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>🤖 تجربة استخراج النصوص (PDF Parser)</h2>
+        
+        <div class="upload-section">
+            <input type="file" id="pdfFile" accept=".pdf">
+            <button onclick="uploadFile()">حلل الملف</button>
+        </div>
+
+        <div id="result">
+            النتيجة هتظهر هنا بمجرد رفع الملف...
+        </div>
+    </div>
+
+    <script>
+        async function uploadFile() {
+            const fileInput = document.getElementById('pdfFile');
+            const resultDiv = document.getElementById('result');
+
+            if (fileInput.files.length === 0) {
+                alert("الرجاء اختيار ملف PDF أولاً!");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]); // لازم الاسم يكون "file" زي الـ Controller بالظبط
+
+            resultDiv.innerText = "⏳ جاري قراءة الملف وتحليل البيانات... لحظات من فضلك...";
+
+            try {
+                // بنبعت الطلب للـ API بتاعتنا
+                const response = await fetch('/api/Document/upload-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerText = data.text; // بنعرض النص اللي رجع
+                } else {
+                    resultDiv.innerText = "❌ حصلت مشكلة: " + response.status;
+                }
+            } catch (error) {
+                resultDiv.innerText = "❌ خطأ في الاتصال: " + error;
+            }
+        }
+    </script>
+</body>
+</html>
