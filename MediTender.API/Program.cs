@@ -15,6 +15,7 @@ builder.Services.AddControllers();
 
 builder.Services.AddScoped<IPdfParsingService, PdfParsingService>();
 builder.Services.AddScoped<ITextChunkingService, TextChunkingService>();
+builder.Services.AddScoped<IVectorStorageService, VectorStorageService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 

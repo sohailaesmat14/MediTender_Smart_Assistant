@@ -8,25 +8,44 @@ namespace MediTender.API.Controllers
     public class DocumentController : ControllerBase
     {
         private readonly IPdfParsingService _pdfParsingService;
+        private readonly ITextChunkingService _textChunkingService;
+        private readonly IVectorStorageService _vectorStorageService;
 
-        public DocumentController(IPdfParsingService pdfParsingService)
+        public DocumentController(
+            IPdfParsingService pdfParsingService, 
+            ITextChunkingService textChunkingService, 
+            IVectorStorageService vectorStorageService)
         {
             _pdfParsingService = pdfParsingService;
+            _textChunkingService = textChunkingService;
+            _vectorStorageService = vectorStorageService;
         }
 
         [HttpPost("upload-pdf")]
-        public IActionResult UploadPdf(IFormFile file)
+        public async Task<IActionResult> UploadPdfAsync(IFormFile file)
         {
             if (file == null || file.Length == 0)
             {
                 return BadRequest("Please upload a valid PDF file.");
             }
 
-            using (var stream = file.OpenReadStream())
+            try
             {
+                using var stream = file.OpenReadStream();
                 var extractedText = _pdfParsingService.ExtractTextFromPdf(stream);
                 
-                return Ok(new { Text = extractedText });
+                var chunks = _textChunkingService.ChunkText(extractedText);
+
+                await _vectorStorageService.SaveChunksToQdrantAsync(file.FileName, chunks);
+
+                return Ok(new { 
+                    Message = "upload and processing successful", 
+                    ChunksCount = chunks.Count 
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"error in processing {ex.Message}");
             }
         }
     }
