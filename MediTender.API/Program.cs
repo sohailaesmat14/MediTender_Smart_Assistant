@@ -36,7 +36,7 @@ var kernelBuilder = builder.Services.AddKernel();
 // kernelBuilder.AddOpenAIChatCompletion("gpt-3.5-turbo", openAiApiKey);
 // kernelBuilder.AddOpenAITextEmbeddingGeneration("text-embedding-3-small", openAiApiKey);
 
-kernelBuilder.AddGoogleAIGeminiChatCompletion("gemini-1.5-flash", geminiApiKey);
+kernelBuilder.AddGoogleAIGeminiChatCompletion("gemini-pro", geminiApiKey);
 
 var app = builder.Build();
 
