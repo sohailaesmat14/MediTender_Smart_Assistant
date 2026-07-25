@@ -45,6 +45,7 @@ namespace MediTender.API.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex.ToString());
                 return StatusCode(500, $"error in processing {ex.Message}");
             }
         }
