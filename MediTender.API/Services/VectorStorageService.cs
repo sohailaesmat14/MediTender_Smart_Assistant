@@ -1,3 +1,5 @@
+#pragma warning disable CS0618
+
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Embeddings;
 using Qdrant.Client;
@@ -22,7 +24,7 @@ namespace MediTender.API.Services
             var collections = await _qdrantClient.ListCollectionsAsync();
             if (!collections.Contains(_collectionName))
             {
-                await _qdrantClient.CreateCollectionAsync(_collectionName, new VectorParams { Size = 1536, Distance = Distance.Cosine });
+                await _qdrantClient.CreateCollectionAsync(_collectionName, new VectorParams { Size = 768, Distance = Distance.Cosine });
             }
 
             var embeddings = await _embeddingGeneration.GenerateEmbeddingsAsync(chunks);

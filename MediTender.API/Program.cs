@@ -7,6 +7,7 @@ using MediTender.API.Data;
 using MediTender.API.Services;
 using Qdrant.Client;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Connectors.Google;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +20,8 @@ builder.Services.AddScoped<IVectorStorageService, VectorStorageService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-var openAiApiKey = builder.Configuration["OpenAI:ApiKey"] ?? throw new ArgumentNullException("OpenAI:ApiKey");
+// var openAiApiKey = builder.Configuration["OpenAI:ApiKey"] ?? throw new ArgumentNullException("OpenAI:ApiKey");
+var geminiApiKey = builder.Configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey");
 var qdrantEndpoint = builder.Configuration["Qdrant:Endpoint"] ?? throw new ArgumentNullException("Qdrant:Endpoint");
 var qdrantApiKey = builder.Configuration["Qdrant:ApiKey"] ?? throw new ArgumentNullException("Qdrant:ApiKey");
 
@@ -31,8 +33,11 @@ var qdrantClient = new QdrantClient(
 builder.Services.AddSingleton(qdrantClient);
 
 var kernelBuilder = builder.Services.AddKernel();
-kernelBuilder.AddOpenAIChatCompletion("gpt-3.5-turbo", openAiApiKey);
-kernelBuilder.AddOpenAITextEmbeddingGeneration("text-embedding-3-small", openAiApiKey);
+// kernelBuilder.AddOpenAIChatCompletion("gpt-3.5-turbo", openAiApiKey);
+// kernelBuilder.AddOpenAITextEmbeddingGeneration("text-embedding-3-small", openAiApiKey);
+
+kernelBuilder.AddGoogleAIGeminiChatCompletion("gemini-1.5-flash", geminiApiKey);
+kernelBuilder.AddGoogleAIEmbeddingGenerator("text-embedding-004", geminiApiKey);
 builder.Services.AddSingleton(kernelBuilder.Build());
 
 var app = builder.Build();
