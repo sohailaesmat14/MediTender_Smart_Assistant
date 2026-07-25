@@ -49,5 +49,26 @@ namespace MediTender.API.Controllers
                 return StatusCode(500, $"error in processing {ex.Message}");
             }
         }
+        public class QuestionRequest 
+        { 
+            public string Question { get; set; } = string.Empty; 
+        }
+
+        [HttpPost("ask")]
+        public async Task<IActionResult> AskQuestion([FromBody] QuestionRequest request, [FromServices] IRagService ragService)
+        {
+            if (string.IsNullOrWhiteSpace(request.Question))
+                return BadRequest("Question cannot be empty.");
+
+            try
+            {
+                var answer = await ragService.AnalyzeOfferAsync(request.Question);
+                return Ok(new { Answer = answer });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"there was an error processing your request: {ex.Message}");
+            }
+        }
     }
 }
