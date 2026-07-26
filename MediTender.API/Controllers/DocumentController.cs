@@ -77,31 +77,32 @@ namespace MediTender.API.Controllers
             
             return Ok(history);
         }
-    }
 
-    public class QuestionRequest 
-    { 
+        public class QuestionRequest 
+        { 
         public string Question { get; set; } = string.Empty; 
-    }
-    public class ComparisonRequest 
-    { 
-        public List<string> Requirements { get; set; } = new(); 
+        }
+        public class ComparisonRequest 
+        { 
+            public List<string> Requirements { get; set; } = new(); 
+        }
+
+        [HttpPost("compare")]
+        public async Task<IActionResult> CompareOffer([FromBody] ComparisonRequest request, [FromServices] IComparisonService comparisonService)
+        {
+            if (request.Requirements == null || !request.Requirements.Any())
+                return BadRequest();
+
+            try
+            {
+                var results = await comparisonService.CompareOfferAsync(request.Requirements);
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 
-    [HttpPost("compare")]
-    public async Task<IActionResult> CompareOffer([FromBody] ComparisonRequest request, [FromServices] IComparisonService comparisonService)
-    {
-        if (request.Requirements == null || !request.Requirements.Any())
-            return BadRequest();
-
-        try
-        {
-            var results = await comparisonService.CompareOfferAsync(request.Requirements);
-            return Ok(results);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, ex.Message);
-        }
-    }
 }
