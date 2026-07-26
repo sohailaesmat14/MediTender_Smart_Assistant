@@ -2,18 +2,22 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Qdrant.Client;
+using MediTender.API.Data;
+using MediTender.API.Models;
 
 namespace MediTender.API.Services
 {
     public class RagService : IRagService
     {
         private readonly QdrantClient _qdrantClient;
+        private readonly ApplicationDbContext _dbContext;
         private readonly string _googleApiKey;
         private readonly string _collectionName = "meditender_collection_v2";
 
-        public RagService(QdrantClient qdrantClient, IConfiguration config)
+        public RagService(QdrantClient qdrantClient, ApplicationDbContext dbContext, IConfiguration config)
         {
             _qdrantClient = qdrantClient;
+            _dbContext = dbContext;
             _googleApiKey = config["Gemini:ApiKey"] ?? throw new Exception("Gemini API Key is missing!");
         }
 
@@ -51,41 +55,52 @@ namespace MediTender.API.Services
             {question}
             ";
 
-            return await GenerateChatResponseAsync(prompt);
+            var answer = await GenerateChatResponseAsync(prompt);
+
+            var interaction = new TenderInteraction
+            {
+                Question = question,
+                Answer = answer
+            };
+
+            _dbContext.TenderInteractions.Add(interaction);
+            await _dbContext.SaveChangesAsync();
+
+            return answer;
         }
 
-private async Task<string> GenerateChatResponseAsync(string prompt)
-{
-    using var client = new HttpClient();
-    var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={_googleApiKey}";
-
-    var payload = new
-    {
-        contents = new[]
+        private async Task<string> GenerateChatResponseAsync(string prompt)
         {
-            new { parts = new[] { new { text = prompt } } }
+            using var client = new HttpClient();
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={_googleApiKey}";
+
+            var payload = new
+            {
+                contents = new[]
+                {
+                    new { parts = new[] { new { text = prompt } } }
+                }
+            };
+
+            var json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync(url, content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"Google API Error: {responseString}");
+
+            using var doc = JsonDocument.Parse(responseString);
+            var generatedAnswer = doc.RootElement
+                .GetProperty("candidates")[0]
+                .GetProperty("content")
+                .GetProperty("parts")[0]
+                .GetProperty("text")
+                .GetString();
+
+            return generatedAnswer ?? "No answer retrieved.";
         }
-    };
-
-    var json = JsonSerializer.Serialize(payload);
-    var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-    var response = await client.PostAsync(url, content);
-    var responseString = await response.Content.ReadAsStringAsync();
-
-    if (!response.IsSuccessStatusCode)
-        throw new Exception($"Google API Error: {responseString}");
-
-    using var doc = JsonDocument.Parse(responseString);
-    var answer = doc.RootElement
-        .GetProperty("candidates")[0]
-        .GetProperty("content")
-        .GetProperty("parts")[0]
-        .GetProperty("text")
-        .GetString();
-
-    return answer ?? "No answer retrieved.";
-}
 
         private async Task<float[]> GetEmbeddingAsync(string text)
         {

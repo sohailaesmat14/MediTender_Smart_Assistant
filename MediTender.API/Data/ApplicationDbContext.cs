@@ -12,5 +12,9 @@ namespace MediTender.API.Data
         public DbSet<Tender> Tenders { get; set; }
         public DbSet<Standard> Standards { get; set; }
         public DbSet<VendorOffer> VendorOffers { get; set; }
+        public DbSet<TenderInteraction> TenderInteractions { get; set; }
+
     }
 }
+
+        

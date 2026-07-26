@@ -1,65 +1,162 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تجربة RAG - MediTender</title>
+    <title>MediTender Assistant</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background-color: #f4f7f6; }
-        .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h2 { color: #2c3e50; text-align: center; }
-        .upload-section { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
-        input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #0056b3; }
-        #result { background-color: #e9ecef; padding: 20px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; max-height: 500px; overflow-y: auto; border: 1px solid #ced4da; line-height: 1.6; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        .upload-section, .chat-section { margin-top: 30px; }
+        input[type="file"], input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
+        button { background-color: #3498db; color: white; border: none; padding: 12px 25px; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 16px; transition: background 0.3s; }
+        button:hover { background-color: #2980b9; }
+        .chat-box { border: 1px solid #ddd; padding: 15px; height: 350px; overflow-y: auto; background-color: #fafafa; border-radius: 6px; margin-bottom: 10px; }
+        .message { margin-bottom: 15px; padding: 12px; border-radius: 8px; line-height: 1.5; }
+        .user-msg { background-color: #d1ecf1; color: #0c5460; text-align: left; border-bottom-right-radius: 0; }
+        .bot-msg { background-color: #e2e3e5; color: #383d41; text-align: left; border-bottom-left-radius: 0; }
+        .status-text { font-size: 0.9em; margin-top: 10px; display: none; font-weight: bold; }
+        .flex-container { display: flex; gap: 10px; }
+        .flex-container input { margin: 0; }
     </style>
 </head>
 <body>
-
     <div class="container">
-        <h2>🤖 تجربة استخراج النصوص (PDF Parser)</h2>
+        <h1>MediTender Smart Assistant </h1>
         
         <div class="upload-section">
-            <input type="file" id="pdfFile" accept=".pdf">
-            <button onclick="uploadFile()">حلل الملف</button>
+            <h3>Upload Technical Proposal (PDF)</h3>
+            <div class="flex-container">
+                <input type="file" id="pdfFile" accept="application/pdf">
+                <button onclick="uploadPdf()">Upload & Process</button>
+            </div>
+            <div id="uploadStatus" class="status-text"></div>
         </div>
-
-        <div id="result">
-            النتيجة هتظهر هنا بمجرد رفع الملف...
+        <div class="history-section" style="margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px;">
+            <h3>History</h3>
+            <button onclick="loadHistory()" style="background-color: #27ae60;">Display History</button>
+            <div id="historyBox" style="margin-top: 15px;"></div>
+        </div>
+        <div class="chat-section">
+            <h3>Query the Proposal</h3>
+            <div class="chat-box" id="chatBox"></div>
+            <div class="flex-container">
+                <input type="text" id="questionInput" placeholder="Ask about any specifications in the uploaded document...">
+                <button onclick="askQuestion()">Send</button>
+            </div>
+            <div id="chatStatus" class="status-text" style="color: #e67e22;">Searching and analyzing the answer...</div>
         </div>
     </div>
 
     <script>
-        async function uploadFile() {
+        async function uploadPdf() {
             const fileInput = document.getElementById('pdfFile');
-            const resultDiv = document.getElementById('result');
-
+            const statusDiv = document.getElementById('uploadStatus');
+            
             if (fileInput.files.length === 0) {
-                alert("الرجاء اختيار ملف PDF أولاً!");
+                alert("Please select a PDF file first.");
                 return;
             }
 
             const formData = new FormData();
-            formData.append("file", fileInput.files[0]); // لازم الاسم يكون "file" زي الـ Controller بالظبط
+            formData.append("file", fileInput.files[0]);
 
-            resultDiv.innerText = "⏳ جاري قراءة الملف وتحليل البيانات... لحظات من فضلك...";
+            statusDiv.style.display = "block";
+            statusDiv.style.color = "#e67e22";
+            statusDiv.innerText = "Uploading and processing the file...";
 
             try {
-                // بنبعت الطلب للـ API بتاعتنا
-                const response = await fetch('/api/Document/upload-pdf', {
+                const response = await fetch('http://localhost:5172/api/Document/upload-pdf', {
                     method: 'POST',
                     body: formData
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    resultDiv.innerText = data.text; // بنعرض النص اللي رجع
+                    const result = await response.json();
+                    statusDiv.innerText = "Upload successful! Number of chunks: " + result.chunksCount;
+                    statusDiv.style.color = "#27ae60";
                 } else {
-                    resultDiv.innerText = "❌ حصلت مشكلة: " + response.status;
+                    statusDiv.innerText = "An error occurred during upload.";
+                    statusDiv.style.color = "#c0392b";
                 }
             } catch (error) {
-                resultDiv.innerText = "❌ خطأ في الاتصال: " + error;
+                statusDiv.innerText = "Unable to connect to the server.";
+                statusDiv.style.color = "#c0392b";
+            }
+        }
+
+        async function askQuestion() {
+            const input = document.getElementById('questionInput');
+            const statusDiv = document.getElementById('chatStatus');
+            const question = input.value.trim();
+
+            if (!question) return;
+
+            appendMessage("You", question, "user-msg");
+            input.value = "";
+            
+            statusDiv.style.display = "block";
+
+            try {
+                const response = await fetch('http://localhost:5172/api/Document/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ question: question })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    appendMessage("Smart Assistant", result.answer, "bot-msg");
+                } else {
+                    appendMessage("System", "An error occurred while processing the question.", "bot-msg");
+                }
+            } catch (error) {
+                appendMessage("System", "Unable to connect to the server.", "bot-msg");
+            }
+
+            statusDiv.style.display = "none";
+        }
+
+        function appendMessage(sender, text, className) {
+            const chatBox = document.getElementById('chatBox');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = "message " + className;
+            msgDiv.innerHTML = "<strong>" + sender + ":</strong><br><br>" + text.replace(/\n/g, '<br>');
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        async function loadHistory() {
+            const historyBox = document.getElementById('historyBox');
+            historyBox.innerHTML = "Loading history...";
+
+            try {
+                const response = await fetch('http://localhost:5172/api/Document/history');
+                if (response.ok) {
+                    const data = await response.json();
+                    historyBox.innerHTML = "";
+                    
+                    if (data.length === 0) {
+                        historyBox.innerHTML = "there is no history available.";
+                        return;
+                    }
+
+                    data.forEach(item => {
+                        const div = document.createElement('div');
+                        div.style.marginBottom = "15px";
+                        div.style.padding = "15px";
+                        div.style.backgroundColor = "#e8f4f8";
+                        div.style.borderRadius = "8px";
+                        div.innerHTML = `<strong>Question:</strong> ${item.question}<br><br><strong>Answer:</strong> ${item.answer.replace(/\n/g, '<br>')}`;
+                        historyBox.appendChild(div);
+                    });
+                } else {
+                    historyBox.innerHTML = "there was an error fetching the history.";
+                }
+            } catch (error) {
+                historyBox.innerHTML = "sorry server is out of work";
             }
         }
     </script>

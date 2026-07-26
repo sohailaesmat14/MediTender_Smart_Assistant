@@ -14,11 +14,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+});
+
 builder.Services.AddScoped<IPdfParsingService, PdfParsingService>();
 builder.Services.AddScoped<ITextChunkingService, TextChunkingService>();
 builder.Services.AddScoped<IVectorStorageService, VectorStorageService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IRagService, RagService>();
+builder.Services.AddScoped<IComparisonService, ComparisonService>();
 
 // var openAiApiKey = builder.Configuration["OpenAI:ApiKey"] ?? throw new ArgumentNullException("OpenAI:ApiKey");
 var geminiApiKey = builder.Configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey");
@@ -31,6 +43,7 @@ var qdrantClient = new QdrantClient(
     apiKey: qdrantApiKey
 );
 builder.Services.AddSingleton(qdrantClient);
+
 
 var kernelBuilder = builder.Services.AddKernel();
 // kernelBuilder.AddOpenAIChatCompletion("gpt-3.5-turbo", openAiApiKey);
@@ -47,6 +60,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 app.MapControllers();
 
 app.Run();
