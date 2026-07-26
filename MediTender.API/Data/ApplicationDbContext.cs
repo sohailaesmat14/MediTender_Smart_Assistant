@@ -13,8 +13,8 @@ namespace MediTender.API.Data
         public DbSet<Standard> Standards { get; set; }
         public DbSet<VendorOffer> VendorOffers { get; set; }
         public DbSet<TenderInteraction> TenderInteractions { get; set; }
+        public DbSet<OfferEvaluation> OfferEvaluations { get; set; }
+        public DbSet<EvaluationDetail> EvaluationDetails { get; set; }
 
     }
 }
-
-        

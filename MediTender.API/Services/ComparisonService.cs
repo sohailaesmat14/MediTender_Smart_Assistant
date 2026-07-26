@@ -77,7 +77,7 @@ namespace MediTender.API.Services
         private async Task<string> GenerateChatResponseAsync(string prompt)
         {
             using var client = new HttpClient();
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_googleApiKey}";
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={_googleApiKey}";
 
             var payload = new
             {
