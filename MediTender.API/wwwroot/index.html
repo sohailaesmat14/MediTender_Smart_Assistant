@@ -4,48 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediTender Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 15px; }
-        .upload-section, .chat-section { margin-top: 30px; }
-        input[type="file"], input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1, h3 { color: #2c3e50; text-align: center; }
+        .section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
+        input[type="file"], input[type="text"], textarea { width: 100%; padding: 12px; margin: 10px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
         button { background-color: #3498db; color: white; border: none; padding: 12px 25px; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 16px; transition: background 0.3s; }
         button:hover { background-color: #2980b9; }
-        .chat-box { border: 1px solid #ddd; padding: 15px; height: 350px; overflow-y: auto; background-color: #fafafa; border-radius: 6px; margin-bottom: 10px; }
-        .message { margin-bottom: 15px; padding: 12px; border-radius: 8px; line-height: 1.5; }
-        .user-msg { background-color: #d1ecf1; color: #0c5460; text-align: left; border-bottom-right-radius: 0; }
-        .bot-msg { background-color: #e2e3e5; color: #383d41; text-align: left; border-bottom-left-radius: 0; }
-        .status-text { font-size: 0.9em; margin-top: 10px; display: none; font-weight: bold; }
+        .full-width-btn { width: 100%; }
         .flex-container { display: flex; gap: 10px; }
         .flex-container input { margin: 0; }
+        .chat-box { border: 1px solid #ddd; padding: 15px; height: 350px; overflow-y: auto; background-color: #fafafa; border-radius: 6px; margin-bottom: 10px; }
+        .message { margin-bottom: 15px; padding: 12px; border-radius: 8px; line-height: 1.5; }
+        .user-msg { background-color: #d1ecf1; color: #0c5460; text-align: left; border-bottom-left-radius: 0; }
+        .bot-msg { background-color: #e2e3e5; color: #383d41; text-align: left; border-bottom-right-radius: 0; }
+        .status-text { font-size: 0.9em; margin-top: 10px; display: none; font-weight: bold; text-align: center; }
+        .chart-container { width: 100%; max-width: 600px; margin: 20px auto; }
+        .result-box { margin-top: 20px; padding: 15px; border-radius: 8px; background-color: #e8f4f8; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>MediTender Smart Assistant </h1>
+        <h1>MediTender Smart Assistant 🤖</h1>
         
-        <div class="upload-section">
-            <h3>Upload Technical Proposal (PDF)</h3>
+        <div class="section">
+            <h3>Upload Technical Offer (PDF)</h3>
             <div class="flex-container">
                 <input type="file" id="pdfFile" accept="application/pdf">
                 <button onclick="uploadPdf()">Upload & Process</button>
             </div>
             <div id="uploadStatus" class="status-text"></div>
         </div>
-        <div class="history-section" style="margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px;">
-            <h3>History</h3>
-            <button onclick="loadHistory()" style="background-color: #27ae60;">Display History</button>
-            <div id="historyBox" style="margin-top: 15px;"></div>
-        </div>
-        <div class="chat-section">
-            <h3>Query the Proposal</h3>
+
+        <div class="section">
+            <h3>Free Inquiry (Chat/Q&A)</h3>
             <div class="chat-box" id="chatBox"></div>
             <div class="flex-container">
-                <input type="text" id="questionInput" placeholder="Ask about any specifications in the uploaded document...">
+                <input type="text" id="questionInput" placeholder="Ask about any specifications in the uploaded device...">
                 <button onclick="askQuestion()">Send</button>
             </div>
-            <div id="chatStatus" class="status-text" style="color: #e67e22;">Searching and analyzing the answer...</div>
+            <div id="chatStatus" class="status-text" style="color: #e67e22;">Searching and analyzing answer...</div>
+        </div>
+
+        <div class="section">
+            <h3>Previous Inquiries History</h3>
+            <button class="full-width-btn" onclick="loadHistory()" style="background-color: #27ae60;">View History</button>
+            <div id="historyBox" style="margin-top: 15px;"></div>
+        </div>
+
+        <div class="section">
+            <h3>Offer Comparison & Requirements Evaluation (Radar Chart)</h3>
+            <textarea id="requirementsInput" rows="4" placeholder="Enter mandatory requirements (each requirement on a separate line)..."></textarea>
+            <button class="full-width-btn" onclick="compareOffer()">Analyze & Draw Evaluation</button>
+            <div id="compareStatus" class="status-text" style="color: #e67e22;">Analyzing offer and comparing requirements...</div>
+            
+            <div class="chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+            <div id="comparisonResults"></div>
         </div>
     </div>
 
@@ -64,7 +82,7 @@
 
             statusDiv.style.display = "block";
             statusDiv.style.color = "#e67e22";
-            statusDiv.innerText = "Uploading and processing the file...";
+            statusDiv.innerText = "Uploading and processing file...";
 
             try {
                 const response = await fetch('http://localhost:5172/api/Document/upload-pdf', {
@@ -74,10 +92,10 @@
 
                 if (response.ok) {
                     const result = await response.json();
-                    statusDiv.innerText = "Upload successful! Number of chunks: " + result.chunksCount;
+                    statusDiv.innerText = "Uploaded successfully! Number of chunks: " + result.chunksCount;
                     statusDiv.style.color = "#27ae60";
                 } else {
-                    statusDiv.innerText = "An error occurred during upload.";
+                    statusDiv.innerText = "Error occurred during upload.";
                     statusDiv.style.color = "#c0392b";
                 }
             } catch (error) {
@@ -111,7 +129,7 @@
                     const result = await response.json();
                     appendMessage("Smart Assistant", result.answer, "bot-msg");
                 } else {
-                    appendMessage("System", "An error occurred while processing the question.", "bot-msg");
+                    appendMessage("System", "Error occurred while processing the question.", "bot-msg");
                 }
             } catch (error) {
                 appendMessage("System", "Unable to connect to the server.", "bot-msg");
@@ -128,9 +146,10 @@
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
+
         async function loadHistory() {
             const historyBox = document.getElementById('historyBox');
-            historyBox.innerHTML = "Loading history...";
+            historyBox.innerHTML = "<p style='text-align:center;'>Loading...</p>";
 
             try {
                 const response = await fetch('http://localhost:5172/api/Document/history');
@@ -139,7 +158,7 @@
                     historyBox.innerHTML = "";
                     
                     if (data.length === 0) {
-                        historyBox.innerHTML = "there is no history available.";
+                        historyBox.innerHTML = "<p style='text-align:center;'>No history available yet.</p>";
                         return;
                     }
 
@@ -153,11 +172,97 @@
                         historyBox.appendChild(div);
                     });
                 } else {
-                    historyBox.innerHTML = "there was an error fetching the history.";
+                    historyBox.innerHTML = "<p style='color:red; text-align:center;'>Error loading history.</p>";
                 }
             } catch (error) {
-                historyBox.innerHTML = "sorry server is out of work";
+                historyBox.innerHTML = "<p style='color:red; text-align:center;'>Unable to connect to the server.</p>";
             }
+        }
+
+        let myRadarChart = null;
+
+        async function compareOffer() {
+            const input = document.getElementById('requirementsInput').value;
+            const statusDiv = document.getElementById('compareStatus');
+            const resultsDiv = document.getElementById('comparisonResults');
+            
+            if (!input.trim()) return;
+
+            const requirements = input.split('\n').map(r => r.trim()).filter(r => r);
+            statusDiv.style.display = "block";
+            resultsDiv.innerHTML = "";
+
+            try {
+                const response = await fetch('http://localhost:5172/api/Document/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requirements: requirements })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    drawRadarChart(data);
+                    displayResults(data, resultsDiv);
+                } else {
+                    resultsDiv.innerHTML = "<p style='color:red;'>Error occurred during evaluation.</p>";
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = "<p style='color:red;'>Unable to connect to the server.</p>";
+            }
+
+            statusDiv.style.display = "none";
+        }
+
+        function drawRadarChart(data) {
+            const labels = data.map(d => d.requirement.substring(0, 25) + "...");
+            const scores = data.map(d => d.score);
+
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            
+            if (myRadarChart) {
+                myRadarChart.destroy();
+            }
+
+            myRadarChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Current Offer Evaluation',
+                        data: scores,
+                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(52, 152, 219, 1)'
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            angleLines: { display: true },
+                            suggestedMin: 0,
+                            suggestedMax: 10
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayResults(data, container) {
+            data.forEach(item => {
+                const color = item.status === "Met" ? "#27ae60" : item.status === "Partially Met" ? "#f39c12" : "#c0392b";
+                const div = document.createElement('div');
+                div.className = "result-box";
+                div.innerHTML = `
+                    <strong>Requirement:</strong> ${item.requirement}<br><br>
+                    <strong>Status:</strong> <span style="color:${color}; font-weight:bold;">${item.status}</span><br><br>
+                    <strong>Score:</strong> ${item.score}/10<br><br>
+                    <strong>Evidence:</strong> <span style="background:#fff; padding:5px; border-radius:4px; display:inline-block; margin-top:5px; border:1px solid #ccc;">${item.evidence}</span>
+                `;
+                container.appendChild(div);
+            });
         }
     </script>
 </body>

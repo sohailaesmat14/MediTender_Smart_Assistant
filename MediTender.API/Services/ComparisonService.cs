@@ -24,6 +24,14 @@ namespace MediTender.API.Services
         public async Task<List<ComparisonResult>> CompareOfferAsync(List<string> requirements)
         {
             var results = new List<ComparisonResult>();
+            
+            var evaluation = new OfferEvaluation
+            {
+                VendorName = "Unknown Vendor",
+                EvaluationDate = DateTime.UtcNow,
+                TotalScore = 0,
+                FinalDecision = "Pending"
+            };
 
             foreach (var req in requirements)
             {
@@ -61,15 +69,33 @@ namespace MediTender.API.Services
                 
                 var parsedResponse = JsonSerializer.Deserialize<JsonElement>(cleanedJson);
 
-                results.Add(new ComparisonResult
+                var detail = new EvaluationDetail
                 {
                     Requirement = req,
-                    IsMandatory = true, 
+                    IsMandatory = true,
                     Status = parsedResponse.GetProperty("status").GetString() ?? "Not Met",
                     Evidence = parsedResponse.GetProperty("evidence").GetString() ?? "",
                     Score = parsedResponse.GetProperty("score").GetInt32()
+                };
+
+                evaluation.Details.Add(detail);
+                evaluation.TotalScore += detail.Score;
+
+                results.Add(new ComparisonResult
+                {
+                    Requirement = detail.Requirement,
+                    IsMandatory = detail.IsMandatory, 
+                    Status = detail.Status,
+                    Evidence = detail.Evidence,
+                    Score = detail.Score
                 });
             }
+
+            bool hasFailedMandatory = evaluation.Details.Any(d => d.IsMandatory && d.Status == "Not Met");
+            evaluation.FinalDecision = hasFailedMandatory ? "Rejected" : "Accepted";
+
+            _dbContext.OfferEvaluations.Add(evaluation);
+            await _dbContext.SaveChangesAsync();
 
             return results;
         }

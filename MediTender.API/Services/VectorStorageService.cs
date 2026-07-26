@@ -15,76 +15,63 @@ namespace MediTender.API.Services
         public VectorStorageService(QdrantClient qdrantClient, IConfiguration config)
         {
             _qdrantClient = qdrantClient;
-            _googleApiKey = config["Gemini:ApiKey"] ?? throw new Exception("Gemini API Key is missing!");
+            _googleApiKey = config["Gemini:ApiKey"] ?? throw new Exception("Missing API Key");
         }
 
-        public async Task SaveChunksToQdrantAsync(string documentName, List<string> chunks)
+        public async Task SaveChunksToQdrantAsync(string fileName, string documentType, string vendorName, List<string> chunks)
         {
-            var collections = await _qdrantClient.ListCollectionsAsync();
-            if (!collections.Contains(_collectionName))
-            {
-                await _qdrantClient.CreateCollectionAsync(_collectionName, new VectorParams { Size = 3072, Distance = Distance.Cosine });
-            }
-
-            var embeddings = await GetEmbeddingsDirectlyAsync(chunks);
-
             var points = new List<PointStruct>();
-            for (int i = 0; i < chunks.Count; i++)
+            ulong idCounter = (ulong)DateTime.UtcNow.Ticks;
+
+            foreach (var chunk in chunks)
             {
-                var id = (ulong)Guid.NewGuid().GetHashCode(); 
+                var embedding = await GetEmbeddingAsync(chunk);
                 
-                var point = new PointStruct
+                var payload = new Dictionary<string, Value>
                 {
-                    Id = id,
-                    Vectors = embeddings[i], 
-                    Payload = 
-                    {
-                        ["documentName"] = documentName,
-                        ["text"] = chunks[i] 
-                    }
+                    { "fileName", new Value { StringValue = fileName } },
+                    { "text", new Value { StringValue = chunk } },
+                    { "documentType", new Value { StringValue = documentType } },
+                    { "vendorName", new Value { StringValue = string.IsNullOrWhiteSpace(vendorName) ? "None" : vendorName } }
                 };
-                points.Add(point);
+
+                points.Add(new PointStruct
+                {
+                    Id = new PointId { Num = idCounter++ },
+                    Vectors = embedding,
+                    Payload = { payload }
+                });
             }
 
             await _qdrantClient.UpsertAsync(_collectionName, points);
         }
 
-        private async Task<List<float[]>> GetEmbeddingsDirectlyAsync(List<string> chunks)
+        private async Task<float[]> GetEmbeddingAsync(string text)
         {
             using var client = new HttpClient();
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={_googleApiKey}";
-            var embeddingsList = new List<float[]>();
-
-            foreach (var chunk in chunks)
-            {
-                var payload = new {
-                    model = "models/gemini-embedding-001",
-                    content = new { parts = new[] { new { text = chunk } } }
-                };
-                
-                var json = JsonSerializer.Serialize(payload);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var response = await client.PostAsync(url, content);
-                var responseString = await response.Content.ReadAsStringAsync();
-                
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new Exception($"Google API Error: {responseString}");
-                }
-
-                using var doc = JsonDocument.Parse(responseString);
-                var values = doc.RootElement
-                    .GetProperty("embedding")
-                    .GetProperty("values")
-                    .EnumerateArray()
-                    .Select(v => v.GetSingle())
-                    .ToArray();
-                    
-                embeddingsList.Add(values);
-            }
             
-            return embeddingsList;
+            var payload = new {
+                model = "models/gemini-embedding-001",
+                content = new { parts = new[] { new { text = text } } }
+            };
+            
+            var json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync(url, content);
+            var responseString = await response.Content.ReadAsStringAsync();
+            
+            if (!response.IsSuccessStatusCode)
+                throw new Exception(responseString);
+
+            using var doc = JsonDocument.Parse(responseString);
+            return doc.RootElement
+                .GetProperty("embedding")
+                .GetProperty("values")
+                .EnumerateArray()
+                .Select(v => v.GetSingle())
+                .ToArray();
         }
     }
 }

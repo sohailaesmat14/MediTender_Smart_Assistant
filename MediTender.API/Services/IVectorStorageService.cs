@@ -2,6 +2,6 @@ namespace MediTender.API.Services
 {
     public interface IVectorStorageService
     {
-        Task SaveChunksToQdrantAsync(string documentName, List<string> chunks);
+        Task SaveChunksToQdrantAsync(string fileName, string documentType, string vendorName, List<string> chunks);
     }
 }

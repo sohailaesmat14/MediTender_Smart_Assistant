@@ -28,28 +28,37 @@ namespace MediTender.API.Controllers
         }
 
         [HttpPost("upload-pdf")]
-        public async Task<IActionResult> UploadPdfAsync(IFormFile file)
+        public async Task<IActionResult> UploadPdfAsync([FromForm] IFormFile file, [FromForm] string documentType, [FromForm] string vendorName = "")
         {
             if (file == null || file.Length == 0)
-            {
                 return BadRequest("Invalid file.");
-            }
+
+            if (string.IsNullOrWhiteSpace(documentType))
+                return BadRequest("Document type (Standard or Offer) is required.");
+
+            if (documentType == "Offer" && string.IsNullOrWhiteSpace(vendorName))
+                return BadRequest("Vendor name is required for offers.");
 
             try
             {
                 using var stream = file.OpenReadStream();
                 var extractedText = _pdfParsingService.ExtractTextFromPdf(stream);
                 var chunks = _textChunkingService.ChunkText(extractedText);
-                await _vectorStorageService.SaveChunksToQdrantAsync(file.FileName, chunks);
+                
+                await _vectorStorageService.SaveChunksToQdrantAsync(file.FileName, documentType, vendorName, chunks);
 
-                return Ok(new { Message = "Success", ChunksCount = chunks.Count });
+                return Ok(new { 
+                    Message = "Success", 
+                    DocumentType = documentType,
+                    Vendor = vendorName,
+                    ChunksCount = chunks.Count 
+                });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ex.Message);
             }
         }
-
         [HttpPost("ask")]
         public async Task<IActionResult> AskQuestion([FromBody] QuestionRequest request, [FromServices] IRagService ragService)
         {
