@@ -112,6 +112,22 @@ namespace MediTender.API.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+        [HttpGet("extract-standard/{fileName}")]
+        public async Task<IActionResult> ExtractStandardRequirements(string fileName, [FromServices] IStandardExtractionService extractionService)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                return BadRequest("File name is required.");
+
+            try
+            {
+                var requirements = await extractionService.ExtractRequirementsAsync(fileName);
+                return Ok(new { Requirements = requirements });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 
 }
