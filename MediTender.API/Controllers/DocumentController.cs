@@ -59,6 +59,7 @@ namespace MediTender.API.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+        
         [HttpPost("ask")]
         public async Task<IActionResult> AskQuestion([FromBody] QuestionRequest request, [FromServices] IRagService ragService)
         {
@@ -91,20 +92,20 @@ namespace MediTender.API.Controllers
         { 
         public string Question { get; set; } = string.Empty; 
         }
-        public class ComparisonRequest 
-        { 
-            public List<string> Requirements { get; set; } = new(); 
-        }
 
-        [HttpPost("compare")]
-        public async Task<IActionResult> CompareOffer([FromBody] ComparisonRequest request, [FromServices] IComparisonService comparisonService)
+
+        [HttpPost("compare-vendors")]
+        public async Task<IActionResult> CompareVendors([FromBody] MultiComparisonRequest request, [FromServices] IComparisonService comparisonService)
         {
             if (request.Requirements == null || !request.Requirements.Any())
-                return BadRequest();
+                return BadRequest("Requirements list cannot be empty.");
+
+            if (request.VendorNames == null || !request.VendorNames.Any())
+                return BadRequest("Vendor names list cannot be empty.");
 
             try
             {
-                var results = await comparisonService.CompareOfferAsync(request.Requirements);
+                var results = await comparisonService.CompareVendorsAsync(request.Requirements, request.VendorNames);
                 return Ok(results);
             }
             catch (Exception ex)
@@ -112,6 +113,18 @@ namespace MediTender.API.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
+        public class QuestionRequest 
+        { 
+            public string Question { get; set; } = string.Empty; 
+        }
+
+        public class MultiComparisonRequest 
+        { 
+            public List<string> Requirements { get; set; } = new(); 
+            public List<string> VendorNames { get; set; } = new();
+        }
+
         [HttpGet("extract-standard/{fileName}")]
         public async Task<IActionResult> ExtractStandardRequirements(string fileName, [FromServices] IStandardExtractionService extractionService)
         {
@@ -129,5 +142,4 @@ namespace MediTender.API.Controllers
             }
         }
     }
-
 }

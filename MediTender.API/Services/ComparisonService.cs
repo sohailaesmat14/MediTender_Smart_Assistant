@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Qdrant.Client;
+using Qdrant.Client.Grpc;
 using MediTender.API.Models;
 using MediTender.API.Data;
 
@@ -21,83 +22,85 @@ namespace MediTender.API.Services
             _googleApiKey = config["Gemini:ApiKey"] ?? throw new Exception("Missing API Key");
         }
 
-        public async Task<List<ComparisonResult>> CompareOfferAsync(List<string> requirements)
+        public async Task<List<OfferEvaluation>> CompareVendorsAsync(List<string> requirements, List<string> vendorNames)
         {
-            var results = new List<ComparisonResult>();
-            
-            var evaluation = new OfferEvaluation
+            var allEvaluations = new List<OfferEvaluation>();
+
+            foreach (var vendor in vendorNames)
             {
-                VendorName = "Unknown Vendor",
-                EvaluationDate = DateTime.UtcNow,
-                TotalScore = 0,
-                FinalDecision = "Pending"
-            };
-
-            foreach (var req in requirements)
-            {
-                var reqEmbedding = await GetEmbeddingAsync(req);
-                
-                var searchResults = await _qdrantClient.SearchAsync(
-                    collectionName: _collectionName,
-                    vector: reqEmbedding,
-                    limit: 3
-                );
-
-                var contextBuilder = new StringBuilder();
-                foreach (var result in searchResults)
+                var evaluation = new OfferEvaluation
                 {
-                    if (result.Payload.TryGetValue("text", out var textValue))
-                    {
-                        contextBuilder.AppendLine(textValue.StringValue);
-                    }
-                }
-
-                var context = contextBuilder.ToString();
-                var prompt = $@"
-                Evaluate the following requirement against the provided document context.
-                Requirement: '{req}'
-                Context: '{context}'
-                
-                Return ONLY a valid JSON object with the exact following keys:
-                - status: 'Met', 'Partially Met', or 'Not Met'
-                - evidence: Exact quote from the context supporting the status.
-                - score: integer from 0 to 10.
-                ";
-
-                var aiResponse = await GenerateChatResponseAsync(prompt);
-                var cleanedJson = aiResponse.Replace("```json", "").Replace("```", "").Trim();
-                
-                var parsedResponse = JsonSerializer.Deserialize<JsonElement>(cleanedJson);
-
-                var detail = new EvaluationDetail
-                {
-                    Requirement = req,
-                    IsMandatory = true,
-                    Status = parsedResponse.GetProperty("status").GetString() ?? "Not Met",
-                    Evidence = parsedResponse.GetProperty("evidence").GetString() ?? "",
-                    Score = parsedResponse.GetProperty("score").GetInt32()
+                    VendorName = vendor,
+                    EvaluationDate = DateTime.UtcNow,
+                    TotalScore = 0,
+                    FinalDecision = "Pending",
+                    Details = new List<EvaluationDetail>()
                 };
 
-                evaluation.Details.Add(detail);
-                evaluation.TotalScore += detail.Score;
-
-                results.Add(new ComparisonResult
+                foreach (var req in requirements)
                 {
-                    Requirement = detail.Requirement,
-                    IsMandatory = detail.IsMandatory, 
-                    Status = detail.Status,
-                    Evidence = detail.Evidence,
-                    Score = detail.Score
-                });
+                    var reqEmbedding = await GetEmbeddingAsync(req);
+                    
+                    var filter = new Filter();
+                    filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Text = "Offer" } } });
+                    filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Text = vendor } } });
+
+                    var searchResults = await _qdrantClient.SearchAsync(
+                        collectionName: _collectionName,
+                        vector: reqEmbedding,
+                        filter: filter,
+                        limit: 3
+                    );
+
+                    var contextBuilder = new StringBuilder();
+                    foreach (var result in searchResults)
+                    {
+                        if (result.Payload.TryGetValue("text", out var textValue))
+                        {
+                            contextBuilder.AppendLine(textValue.StringValue);
+                        }
+                    }
+
+                    var context = contextBuilder.ToString();
+                    
+                    var prompt = $@"
+                    Evaluate the following requirement against the provided document context from vendor '{vendor}'.
+                    Requirement: '{req}'
+                    Context: '{context}'
+                    
+                    Return ONLY a valid JSON object with the exact following keys:
+                    - status: 'Met', 'Partially Met', or 'Not Met'
+                    - evidence: Exact quote from the context supporting the status. If no context exists, return 'No evidence found.'
+                    - score: integer from 0 to 10.
+                    ";
+
+                    var aiResponse = await GenerateChatResponseAsync(prompt);
+                    var cleanedJson = aiResponse.Replace("```json", "").Replace("```", "").Trim();
+                    
+                    var parsedResponse = JsonSerializer.Deserialize<JsonElement>(cleanedJson);
+
+                    var detail = new EvaluationDetail
+                    {
+                        Requirement = req,
+                        IsMandatory = true,
+                        Status = parsedResponse.GetProperty("status").GetString() ?? "Not Met",
+                        Evidence = parsedResponse.GetProperty("evidence").GetString() ?? "",
+                        Score = parsedResponse.GetProperty("score").GetInt32()
+                    };
+
+                    evaluation.Details.Add(detail);
+                    evaluation.TotalScore += detail.Score;
+                }
+
+                bool hasFailedMandatory = evaluation.Details.Any(d => d.IsMandatory && d.Status == "Not Met");
+                evaluation.FinalDecision = hasFailedMandatory ? "Rejected" : "Accepted";
+
+                _dbContext.OfferEvaluations.Add(evaluation);
+                allEvaluations.Add(evaluation);
             }
 
-            bool hasFailedMandatory = evaluation.Details.Any(d => d.IsMandatory && d.Status == "Not Met");
-            evaluation.FinalDecision = hasFailedMandatory ? "Rejected" : "Accepted";
-
-            _dbContext.OfferEvaluations.Add(evaluation);
             await _dbContext.SaveChangesAsync();
-
-            return results;
+            return allEvaluations;
         }
 
         private async Task<string> GenerateChatResponseAsync(string prompt)
