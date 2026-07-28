@@ -11,7 +11,7 @@ namespace MediTender.API.Services
     {
         private readonly QdrantClient _qdrantClient;
         private readonly ApplicationDbContext _dbContext;
-        private readonly IGeminiService _geminiService; 
+        private readonly IGeminiService _geminiService;
         private readonly string _collectionName = "meditender_collection_v2";
 
         public ComparisonService(QdrantClient qdrantClient, ApplicationDbContext dbContext, IGeminiService geminiService)
@@ -25,6 +25,9 @@ namespace MediTender.API.Services
         {
             var allEvaluations = new List<OfferEvaluation>();
 
+            var reqTexts = requirements.Select(r => r.RequirementText).ToList();
+            var reqEmbeddings = await _geminiService.GetEmbeddingsBatchAsync(reqTexts);
+
             foreach (var vendor in vendorNames)
             {
                 var evaluation = new OfferEvaluation
@@ -37,64 +40,81 @@ namespace MediTender.API.Services
                     Details = new List<EvaluationDetail>()
                 };
 
-                foreach (var req in requirements)
+                try
                 {
-                    try 
+                    var contextBuilder = new StringBuilder();
+                    
+                    for (int i = 0; i < requirements.Count; i++)
                     {
-                       
-                        var reqEmbedding = await _geminiService.GetEmbeddingAsync(req.RequirementText); 
+                        var req = requirements[i];
+                        if (i >= reqEmbeddings.Count) break;
+                        var reqEmbedding = reqEmbeddings[i]; 
                         
                         var filter = new Filter();
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "Offer" } } });
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
 
-                        var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 3);
+                        var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 5);
 
-                        var contextBuilder = new StringBuilder();
                         foreach (var result in searchResults)
                         {
                             if (result.Payload.TryGetValue("text", out var textValue))
                                 contextBuilder.AppendLine(textValue.StringValue);
                         }
-                        
-                        var prompt = $@"
-                        Evaluate the following requirement against the provided document context from vendor '{vendor}'.
-                        Requirement: '{req.RequirementText}'
-                        Context: '{contextBuilder}'
-                        
-                        Return ONLY a valid JSON object with the exact following keys:
-                        - status: 'Met', 'Partially Met', or 'Not Met'
-                        - evidence: Exact quote from the context supporting the status. If no context exists, return 'No evidence found.'
-                        - score: integer from 0 to 10.
-                        ";
+                    }
 
-                        
-                        var aiResponse = await _geminiService.GenerateChatResponseAsync(prompt);
-                        var cleanedJson = aiResponse.Replace("```json", "").Replace("```", "").Trim();
-                        
-                        var parsedResponse = JsonSerializer.Deserialize<JsonElement>(cleanedJson);
+                    var reqsJson = JsonSerializer.Serialize(requirements.Select(r => new { r.RequirementText, r.IsMandatory }));
+
+                    var prompt = $@"
+                    You are a Biomedical Procurement Expert. Evaluate the following JSON list of requirements against the provided document context from vendor '{vendor}'.
+                    
+                    Requirements List:
+                    {reqsJson}
+                    
+                    Context:
+                    '{contextBuilder}'
+                    
+                    Return ONLY a valid JSON array of objects. Each object must exactly match a requirement and have the following keys:
+                    - ""RequirementText"": string (exact match from the provided list)
+                    - ""Status"": ""Met"", ""Partially Met"", or ""Not Met""
+                    - ""Evidence"": Exact quote from the context supporting the status. If no context exists, return ""No evidence found.""
+                    - ""Score"": integer from 0 to 10.
+                    ";
+
+                    var aiResponse = await _geminiService.GenerateChatResponseAsync(prompt);
+                    var cleanedJson = aiResponse.Replace("```json", "").Replace("```", "").Trim();
+                    
+                    var parsedArray = JsonSerializer.Deserialize<JsonElement>(cleanedJson);
+
+                    foreach (var req in requirements)
+                    {
+                        var aiDetail = parsedArray.EnumerateArray()
+                            .FirstOrDefault(x => x.GetProperty("RequirementText").GetString() == req.RequirementText);
 
                         var detail = new EvaluationDetail
                         {
                             Requirement = req.RequirementText,
                             IsMandatory = req.IsMandatory, 
-                            Status = parsedResponse.GetProperty("status").GetString() ?? "Not Met",
-                            Evidence = parsedResponse.GetProperty("evidence").GetString() ?? "",
-                            Score = parsedResponse.GetProperty("score").GetInt32()
+                            Status = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Status").GetString() ?? "Not Met" : "Error",
+                            Evidence = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Evidence").GetString() ?? "" : "AI missed this requirement.",
+                            Score = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Score").GetInt32() : 0
                         };
 
                         evaluation.Details.Add(detail);
                         evaluation.TotalScore += detail.Score;
                     }
-                    catch (Exception ex)
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Batched AI Error for {vendor}] {ex.Message}");
+                    foreach(var req in requirements)
                     {
-                        Console.WriteLine($"[AI Error] {ex.Message}");
                         evaluation.Details.Add(new EvaluationDetail
                         {
                             Requirement = req.RequirementText,
                             IsMandatory = req.IsMandatory,
                             Status = "Error",
-                            Evidence = "System Error: AI failed to analyze this requirement.",
+                            Evidence = $"System Error: {ex.Message}", 
                             Score = 0
                         });
                     }

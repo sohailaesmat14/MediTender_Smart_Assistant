@@ -34,10 +34,13 @@ namespace MediTender.API.Services
             var points = new List<PointStruct>();
             ulong idCounter = (ulong)DateTime.UtcNow.Ticks;
 
-            foreach (var chunk in chunks)
+            var embeddings = await _geminiService.GetEmbeddingsBatchAsync(chunks);
+
+            for (int i = 0; i < chunks.Count; i++)
             {
-                
-                var embedding = await _geminiService.GetEmbeddingAsync(chunk);
+                var chunk = chunks[i];
+                if (i >= embeddings.Count) break; 
+                var embedding = embeddings[i];
                 
                 var payload = new Dictionary<string, Value>
                 {
