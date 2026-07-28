@@ -8,6 +8,7 @@ namespace MediTender.API.Models
         public int TotalScore { get; set; }
         public string FinalDecision { get; set; } = string.Empty;
         public List<EvaluationDetail> Details { get; set; } = new();
+        public int TenderId { get; set; }
     }
 
     public class EvaluationDetail

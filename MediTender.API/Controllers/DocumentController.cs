@@ -105,7 +105,7 @@ namespace MediTender.API.Controllers
 
             try
             {
-                var results = await comparisonService.CompareVendorsAsync(request.Requirements, request.VendorNames);
+                var results = await comparisonService.CompareVendorsAsync(request.TenderId, request.Requirements, request.VendorNames);
                 return Ok(results);
             }
             catch (Exception ex)
@@ -114,19 +114,15 @@ namespace MediTender.API.Controllers
             }
         }
 
-        public class QuestionRequest 
-        { 
-            public string Question { get; set; } = string.Empty; 
-        }
-
         public class MultiComparisonRequest 
         { 
-            public List<string> Requirements { get; set; } = new(); 
+            public int TenderId { get; set; } = 1; 
+            public List<Standard> Requirements { get; set; } = new(); 
             public List<string> VendorNames { get; set; } = new();
         }
 
-        [HttpGet("extract-standard/{fileName}")]
-        public async Task<IActionResult> ExtractStandardRequirements(string fileName, [FromServices] IStandardExtractionService extractionService)
+        [HttpGet("extract-standard")]
+        public async Task<IActionResult> ExtractStandardRequirements([FromQuery] string fileName, [FromServices] IStandardExtractionService extractionService)
         {
             if (string.IsNullOrWhiteSpace(fileName))
                 return BadRequest("File name is required.");

@@ -4,6 +4,6 @@ namespace MediTender.API.Services
 {
     public interface IComparisonService
     {
-        Task<List<OfferEvaluation>> CompareVendorsAsync(List<string> requirements, List<string> vendorNames);
+        Task<List<OfferEvaluation>> CompareVendorsAsync(int tenderId, List<Standard> requirements, List<string> vendorNames);
     }
 }

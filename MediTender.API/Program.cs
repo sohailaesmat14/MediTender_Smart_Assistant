@@ -1,13 +1,13 @@
-#pragma warning disable SKEXP0001
-#pragma warning disable CS0618
-#pragma warning disable CS8604
+// #pragma warning disable SKEXP0001
+// #pragma warning disable CS0618
+// #pragma warning disable CS8604
 
 using Microsoft.EntityFrameworkCore;
 using MediTender.API.Data;
 using MediTender.API.Services;
 using Qdrant.Client;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.Google;
+// using Microsoft.SemanticKernel;
+// using Microsoft.SemanticKernel.Connectors.Google;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +32,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlSer
 builder.Services.AddScoped<IRagService, RagService>();
 builder.Services.AddScoped<IComparisonService, ComparisonService>();
 builder.Services.AddScoped<IStandardExtractionService, StandardExtractionService>();
+builder.Services.AddScoped<IGeminiService, GeminiService>();
 
 // var openAiApiKey = builder.Configuration["OpenAI:ApiKey"] ?? throw new ArgumentNullException("OpenAI:ApiKey");
 var geminiApiKey = builder.Configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey");
@@ -46,11 +47,10 @@ var qdrantClient = new QdrantClient(
 builder.Services.AddSingleton(qdrantClient);
 
 
-var kernelBuilder = builder.Services.AddKernel();
+// var kernelBuilder = builder.Services.AddKernel();
 // kernelBuilder.AddOpenAIChatCompletion("gpt-3.5-turbo", openAiApiKey);
 // kernelBuilder.AddOpenAITextEmbeddingGeneration("text-embedding-3-small", openAiApiKey);
-
-kernelBuilder.AddGoogleAIGeminiChatCompletion("gemini-pro", geminiApiKey);
+// kernelBuilder.AddGoogleAIGeminiChatCompletion("gemini-3.5-flash", geminiApiKey);
 
 var app = builder.Build();
 

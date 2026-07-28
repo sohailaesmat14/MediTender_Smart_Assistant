@@ -1,126 +1,69 @@
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using Qdrant.Client;
 using Qdrant.Client.Grpc;
+using MediTender.API.Models;
 
 namespace MediTender.API.Services
 {
     public class StandardExtractionService : IStandardExtractionService
     {
         private readonly QdrantClient _qdrantClient;
-        private readonly string _googleApiKey;
+        private readonly IGeminiService _geminiService;  
         private readonly string _collectionName = "meditender_collection_v2";
 
-        public StandardExtractionService(QdrantClient qdrantClient, IConfiguration config)
+        public StandardExtractionService(QdrantClient qdrantClient, IGeminiService geminiService)
         {
             _qdrantClient = qdrantClient;
-            _googleApiKey = config["Gemini:ApiKey"] ?? throw new Exception("Missing API Key");
+            _geminiService = geminiService;
         }
 
-        public async Task<List<string>> ExtractRequirementsAsync(string fileName)
+        public async Task<List<Standard>> ExtractRequirementsAsync(string fileName)
         {
-            var searchVector = await GetEmbeddingAsync("mandatory technical specifications, requirements, physical characteristics, performance parameters");
+            
+            var searchVector = await _geminiService.GetEmbeddingAsync("mandatory technical specifications, requirements, physical characteristics, performance parameters");
 
             var filter = new Filter();
-            filter.Must.Add(new Condition
-            {
-                Field = new FieldCondition
-                {
-                    Key = "fileName",
-                    Match = new Match { Text = fileName }
-                }
-            });
+            filter.Must.Add(new Condition { Field = new FieldCondition { Key = "fileName", Match = new Match { Keyword = fileName } } });
 
-            var searchResults = await _qdrantClient.SearchAsync(
-                collectionName: _collectionName,
-                vector: searchVector,
-                filter: filter,
-                limit: 10
-            );
+            var searchResults = await _qdrantClient.SearchAsync(_collectionName, searchVector, filter, limit: 10);
 
             var contextBuilder = new StringBuilder();
             foreach (var result in searchResults)
             {
                 if (result.Payload.TryGetValue("text", out var textValue))
-                {
                     contextBuilder.AppendLine(textValue.StringValue);
-                }
             }
 
+            var context = contextBuilder.ToString();
+            if (string.IsNullOrWhiteSpace(context))
+                throw new Exception("No context found in the database for this file.");
+
             var prompt = $@"
-            You are a Biomedical Equipment Expert. Extract all the mandatory technical specifications and requirements from the following text.
-            Return ONLY a valid JSON array of strings. Each string is a single requirement.
-            Do not include any markdown formatting like ```json.
+            You are a Biomedical Procurement Expert. Extract the technical specifications from the following text.
+            For each requirement, determine if it is strictly mandatory (must-have) or optional/preferred.
+            Return ONLY a valid JSON array of objects. Each object must have:
+            - ""RequirementText"": string (the specification)
+            - ""IsMandatory"": boolean (true if mandatory, false if optional)
+            Do not include any markdown formatting.
 
             Context:
-            {contextBuilder.ToString()}
+            {context}
             ";
 
-            var aiResponse = await GenerateChatResponseAsync(prompt);
+            
+            var aiResponse = await _geminiService.GenerateChatResponseAsync(prompt);
             var cleanedJson = aiResponse.Replace("```json", "").Replace("```", "").Trim();
             
-            var requirements = JsonSerializer.Deserialize<List<string>>(cleanedJson);
-            return requirements ?? new List<string>();
-        }
-
-        private async Task<string> GenerateChatResponseAsync(string prompt)
-        {
-            using var client = new HttpClient();
-            var url = $"[https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=){_googleApiKey}";
-
-            var payload = new
+            try
             {
-                contents = new[]
-                {
-                    new { parts = new[] { new { text = prompt } } }
-                }
-            };
-
-            var json = JsonSerializer.Serialize(payload);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync(url, content);
-            var responseString = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
-                throw new Exception(responseString);
-
-            using var doc = JsonDocument.Parse(responseString);
-            return doc.RootElement
-                .GetProperty("candidates")[0]
-                .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text")
-                .GetString() ?? "";
-        }
-
-        private async Task<float[]> GetEmbeddingAsync(string text)
-        {
-            using var client = new HttpClient();
-            var url = $"[https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=){_googleApiKey}";
-            
-            var payload = new {
-                model = "models/gemini-embedding-001",
-                content = new { parts = new[] { new { text = text } } }
-            };
-            
-            var json = JsonSerializer.Serialize(payload);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync(url, content);
-            var responseString = await response.Content.ReadAsStringAsync();
-            
-            if (!response.IsSuccessStatusCode)
-                throw new Exception(responseString);
-
-            using var doc = JsonDocument.Parse(responseString);
-            return doc.RootElement
-                .GetProperty("embedding")
-                .GetProperty("values")
-                .EnumerateArray()
-                .Select(v => v.GetSingle())
-                .ToArray();
+                var requirements = JsonSerializer.Deserialize<List<Standard>>(cleanedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return requirements ?? new List<Standard>();
+            }
+            catch
+            {
+                throw new Exception("AI returned invalid JSON format.");
+            }
         }
     }
 }

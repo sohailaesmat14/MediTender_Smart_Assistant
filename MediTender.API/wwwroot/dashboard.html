@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediProcure AI - Decision Matrix</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f8fafc; color: #333; }
+        header { background-color: #111827; color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .header-left { display: flex; align-items: center; gap: 20px; }
+        .user-profile { display: flex; align-items: center; gap: 10px; }
+        .avatar { background-color: #0ea5e9; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+        .user-details { line-height: 1.2; }
+        .user-details strong { font-size: 14px; }
+        .user-details small { font-size: 12px; color: #9ca3af; }
+        .hospital-badge { background-color: #374151; padding: 8px 15px; border-radius: 20px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .logo { font-size: 20px; font-weight: bold; }
+        .logo span { color: #10b981; }
+
+        .container { max-width: 1200px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .section-title { text-align: center; color: #1e293b; margin-bottom: 30px; font-size: 24px; }
+
+        .chart-container { width: 100%; max-width: 800px; margin: 0 auto 40px auto; }
+        .vendor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .vendor-card { background: #ffffff; border: 1px solid #e2e8f0; border-top: 5px solid #3b82f6; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .badge { padding: 5px 10px; border-radius: 4px; font-weight: bold; color: white; font-size: 12px; }
+        .badge-accepted { background-color: #10b981; }
+        .badge-rejected { background-color: #ef4444; }
+        .evidence-box { background: #f8fafc; padding: 10px; border-radius: 4px; border-left: 3px solid #cbd5e1; margin-top: 8px; font-size: 13px; color: #475569; }
+        .req-item { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #e2e8f0; }
+        
+        .no-data-msg { text-align: center; color: #ef4444; font-size: 18px; padding: 40px; font-weight: bold;}
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <div class="user-profile">
+                <div class="avatar">SE</div>
+                <div class="user-details"><strong>Eng. Suhaila</strong><br><small>Biomedical Tendering</small></div>
+            </div>
+            <div class="hospital-badge">🏥 Andalusia Hospital</div>
+        </div>
+        <div class="logo">MediProcure <span>AI</span> 🤖</div>
+    </header>
+
+    <div class="container">
+        <h2 class="section-title">AI Decision Matrix & Vendor Insights</h2>
+        
+        <div class="chart-container">
+            <canvas id="multiVendorChart"></canvas>
+        </div>
+        
+        <div id="comparisonResultsContainer" class="vendor-grid"></div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const rawData = sessionStorage.getItem('meditender_evaluations');
+            const container = document.getElementById('comparisonResultsContainer');
+            const chartCtx = document.getElementById('multiVendorChart');
+
+            if (!rawData) {
+                container.innerHTML = "<div class='no-data-msg'>No analysis data found. Please start from the upload page.</div>";
+                chartCtx.style.display = 'none';
+                return;
+            }
+
+            const evaluations = JSON.parse(rawData);
+            renderDashboard(evaluations, container);
+        });
+
+        function renderDashboard(evaluations, container) {
+            if (evaluations.length === 0 || evaluations[0].details.length === 0) return;
+
+            // Render Chart
+            const labels = evaluations[0].details.map(d => d.requirement.substring(0, 30) + "...");
+            const datasets = evaluations.map((ev, index) => {
+                const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+                const color = colors[index % colors.length];
+                return {
+                    label: ev.vendorName,
+                    data: ev.details.map(d => d.score),
+                    backgroundColor: color + '33',
+                    borderColor: color,
+                    pointBackgroundColor: color,
+                    borderWidth: 3
+                };
+            });
+
+            new Chart(document.getElementById('multiVendorChart').getContext('2d'), {
+                type: 'radar',
+                data: { labels: labels, datasets: datasets },
+                options: { scales: { r: { suggestedMin: 0, suggestedMax: 10 } } }
+            });
+
+            // Render Cards
+            evaluations.forEach(ev => {
+                const badgeClass = ev.finalDecision === "Accepted" ? "badge-accepted" : "badge-rejected";
+                const card = document.createElement('div');
+                card.className = "vendor-card";
+                
+                let detailsHtml = "";
+                ev.details.forEach(det => {
+                    const statusColor = det.status === "Met" ? "#10b981" : det.status === "Partially Met" ? "#f59e0b" : "#ef4444";
+                    detailsHtml += `
+                        <div class="req-item">
+                            <strong>${det.requirement}</strong><br>
+                            Status: <span style="color:${statusColor}; font-weight:bold;">${det.status}</span> | Score: ${det.score}/10<br>
+                            <div class="evidence-box"><strong>Evidence:</strong> ${det.evidence}</div>
+                        </div>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <h3 style="margin-top: 0; color: #1e293b;">🏢 ${ev.vendorName}</h3>
+                    <p><strong>Overall AI Score:</strong> ${ev.totalScore} / ${ev.details.length * 10}</p>
+                    <p><strong>System Decision:</strong> <span class="badge ${badgeClass}">${ev.finalDecision}</span></p>
+                    ${detailsHtml}
+                `;
+                container.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>

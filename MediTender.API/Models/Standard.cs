@@ -8,7 +8,8 @@ namespace MediTender.API.Models
         
         public string ItemName { get; set; } = string.Empty; 
         public string Description { get; set; } = string.Empty;
-        public bool IsMandatory { get; set; } = true; 
+        public string RequirementText { get; set; } = string.Empty;
+        public bool IsMandatory { get; set; }
         
         public Tender? Tender { get; set; }
     }

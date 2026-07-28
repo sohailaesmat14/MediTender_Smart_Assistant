@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediProcure AI - Upload Documents</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f7f9; color: #333; }
+        header { background-color: #111827; color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .header-left { display: flex; align-items: center; gap: 20px; }
+        .user-profile { display: flex; align-items: center; gap: 10px; }
+        .avatar { background-color: #0ea5e9; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+        .user-details { line-height: 1.2; }
+        .user-details strong { font-size: 14px; }
+        .user-details small { font-size: 12px; color: #9ca3af; }
+        .hospital-badge { background-color: #374151; padding: 8px 15px; border-radius: 20px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .logo { font-size: 20px; font-weight: bold; }
+        .logo span { color: #10b981; }
+
+        .main-container { max-width: 900px; margin: 50px auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); padding: 50px; text-align: center; }
+        .badge-version { background-color: #e0f2fe; color: #0284c7; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 20px; }
+        h1 { font-size: 28px; margin-bottom: 10px; color: #1f2937; }
+        p.subtitle { color: #6b7280; margin-bottom: 40px; font-size: 15px; line-height: 1.6; }
+
+        .upload-cards-wrapper { display: flex; gap: 30px; margin-bottom: 40px; text-align: left; }
+        .upload-card { flex: 1; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 30px; background-color: #fdfdfd; }
+        .upload-card h3 { margin: 0 0 15px 0; font-size: 18px; color: #1e293b; text-align: center;}
+        
+        input[type="file"], input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .add-btn { background-color: #10b981; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 15px;}
+        .add-btn:hover { background-color: #059669; }
+        
+        .vendor-list { font-size: 14px; background: #f1f5f9; padding: 10px; border-radius: 6px; min-height: 50px; }
+        .vendor-item { padding: 5px 0; border-bottom: 1px solid #e2e8f0; }
+
+        .start-btn { background-color: #2563eb; color: white; border: none; width: 100%; padding: 18px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: background-color 0.3s; }
+        .start-btn:hover { background-color: #1d4ed8; }
+        .start-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        
+        #statusMessage { margin-top: 15px; font-weight: bold; color: #ef4444; display: none; }
+
+        /* Progress Bar Styles */
+        .progress-container { display: none; margin-top: 25px; text-align: left; }
+        .progress-info { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .progress-text { font-weight: bold; color: #2563eb; font-size: 16px; }
+        .progress-step { color: #6b7280; font-size: 14px; font-weight: bold; }
+        .progress-bar-bg { width: 100%; background-color: #e2e8f0; border-radius: 8px; overflow: hidden; height: 22px; }
+        .progress-bar-fill { width: 0%; height: 100%; background-color: #2563eb; transition: width 0.4s ease, background-color 0.4s ease; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <div class="user-profile">
+                <div class="avatar">SE</div>
+                <div class="user-details"><strong>Eng. Suhaila</strong><br><small>Biomedical Tendering</small></div>
+            </div>
+            <div class="hospital-badge">🏥 Andalusia Hospital</div>
+        </div>
+        <div class="logo">MediProcure <span>AI</span> 🤖</div>
+    </header>
+
+    <div class="main-container">
+        <span class="badge-version">RAG Engine V2.0</span>
+        <h1>Intelligent Offer Analysis System</h1>
+        <p class="subtitle">Upload your Tender Standard Specifications and Vendor Offers below. The system will handle the data ingestion directly to the vector database.</p>
+
+        <div class="upload-cards-wrapper">
+            <div class="upload-card">
+                <h3>📑 1. Standard Specifications</h3>
+                <label>Select Tender Standard PDF:</label>
+                <input type="file" id="standardFile" accept="application/pdf">
+            </div>
+
+            <div class="upload-card">
+                <h3>📄 2. Vendor Offers</h3>
+                <label>Vendor Name:</label>
+                <input type="text" id="vendorName" placeholder="e.g., NovaCare">
+                <label>Vendor Offer PDF:</label>
+                <input type="file" id="vendorFile" accept="application/pdf">
+                <button class="add-btn" onclick="addVendor()">Add Vendor to Queue</button>
+                <div class="vendor-list" id="vendorList">No vendors added yet.</div>
+            </div>
+        </div>
+
+        <button class="start-btn" id="startBtn" onclick="processUploads()">Start Upload & Analysis 🚀</button>
+        
+        <!-- Progress Bar HTML -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-info">
+                <span class="progress-step" id="progressStep">Starting upload process...</span>
+                <span class="progress-text" id="progressText">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBar"></div>
+            </div>
+        </div>
+
+        <div id="statusMessage"></div>
+    </div>
+
+    <script>
+        let vendorQueue = [];
+
+        function addVendor() {
+            const vName = document.getElementById('vendorName').value.trim();
+            const vFile = document.getElementById('vendorFile').files[0];
+            
+            if (!vName || !vFile) { alert("Please provide both vendor name and file."); return; }
+            
+            vendorQueue.push({ name: vName, file: vFile });
+            updateVendorUI();
+            
+            document.getElementById('vendorName').value = "";
+            document.getElementById('vendorFile').value = "";
+        }
+
+        function updateVendorUI() {
+            const listDiv = document.getElementById('vendorList');
+            if (vendorQueue.length === 0) { listDiv.innerHTML = "No vendors added yet."; return; }
+            listDiv.innerHTML = vendorQueue.map(v => `<div class="vendor-item">✅ ${v.name} (${v.file.name})</div>`).join('');
+        }
+
+        async function processUploads() {
+            const standardFile = document.getElementById('standardFile').files[0];
+            const statusMsg = document.getElementById('statusMessage');
+            const startBtn = document.getElementById('startBtn');
+            
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressStep = document.getElementById('progressStep');
+
+            if (!standardFile) { alert("Please upload the Standard Specifications file."); return; }
+            if (vendorQueue.length === 0) { alert("Please add at least one vendor offer."); return; }
+
+            // UI Reset for upload start
+            startBtn.disabled = true;
+            statusMsg.style.display = "none";
+            progressContainer.style.display = "block";
+            progressBar.style.width = "0%";
+            progressBar.style.backgroundColor = "#2563eb";
+            progressText.style.color = "#2563eb";
+            
+            let totalFiles = 1 + vendorQueue.length;
+            let completedFiles = 0;
+
+            function updateProgress(stepMessage) {
+                completedFiles++;
+                let percent = Math.round((completedFiles / totalFiles) * 100);
+                progressBar.style.width = percent + "%";
+                progressText.innerText = percent + "%";
+                progressStep.innerText = stepMessage;
+            }
+
+            try {
+                // 1. Upload Standard
+                progressStep.innerText = "Uploading Standard Specifications to Database...";
+                const stdFormData = new FormData();
+                stdFormData.append("file", standardFile);
+                stdFormData.append("documentType", "Standard");
+                
+                let res = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: stdFormData });
+                if (!res.ok) throw new Error("Failed to upload standard specifications.");
+                
+                updateProgress("Standard Specifications uploaded successfully.");
+
+                // 2. Upload Vendors
+                let uploadedVendorNames = [];
+                for (let i = 0; i < vendorQueue.length; i++) {
+                    const v = vendorQueue[i];
+                    progressStep.innerText = `Uploading offer for vendor: ${v.name}...`;
+                    const vFormData = new FormData();
+                    vFormData.append("file", v.file);
+                    vFormData.append("documentType", "Offer");
+                    vFormData.append("vendorName", v.name);
+
+                    let vRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vFormData });
+                    if (!vRes.ok) throw new Error(`Failed to upload offer for ${v.name}.`);
+                    
+                    uploadedVendorNames.push(v.name);
+                    updateProgress(`Offer for ${v.name} uploaded successfully.`);
+                }
+
+                // Save state to sessionStorage for the next page
+                sessionStorage.setItem('meditender_standard_file', standardFile.name);
+                sessionStorage.setItem('meditender_vendors', JSON.stringify(uploadedVendorNames));
+
+                // Success UI changes
+                progressStep.innerText = "All files uploaded successfully! Redirecting to engine...";
+                progressBar.style.backgroundColor = "#10b981";
+                progressText.style.color = "#10b981";
+                
+                setTimeout(() => {
+                    window.location.href = 'processing.html';
+                }, 1500);
+
+            } catch (err) {
+                progressContainer.style.display = "none";
+                statusMsg.style.display = "block";
+                statusMsg.innerText = "Error: " + err.message;
+                startBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
