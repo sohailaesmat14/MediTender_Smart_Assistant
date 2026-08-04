@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediProcure AI - BI Decision Matrix</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/linways/table-to-excel@1.0.4/dist/tableToExcel.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -50,7 +50,9 @@
     <header>
         <div class="logo">MediProcure <span>BI Analytics</span> 📊</div>
     </header>
-
+    <button onclick="window.location.href='upload.html'" style="background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+        🔄 Start New Evaluation
+    </button>
     <div class="container" id="dashboardContent">
         <!-- Data will be injected here by JS -->
     </div>
@@ -642,12 +644,17 @@
 
         function exportToExcel() {
             const table = document.querySelector('.matrix-container table');
-            const wb = XLSX.utils.table_to_book(table, { sheet: "MediTender Analysis" });
-            XLSX.writeFile(wb, 'MediTender_Analysis_Report.xlsx');
+            TableToExcel.convert(table, {
+                name: "MediTender_Analysis_Report.xlsx",
+                sheet: {
+                    name: "Technical Analysis"
+                }
+            });
         }
 
         function exportToPDF() {
-            const element = document.querySelector('#dashboardContent');
+            window.scrollTo(0, 0); 
+            const element = document.querySelector('#dashboardContent'); 
             
             const originalOverflow = element.style.overflow;
             element.style.overflow = 'visible';
@@ -656,7 +663,7 @@
                 margin:       0.5,
                 filename:     'MediTender_Analysis_Report.pdf',
                 image:        { type: 'jpeg', quality: 1 },
-                html2canvas:  { scale: 2, useCORS: true, windowWidth: element.scrollWidth }, 
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 }, 
                 jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' }
             };
 

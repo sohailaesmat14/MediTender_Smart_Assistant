@@ -32,7 +32,17 @@ namespace MediTender.API.Services
             var allEvaluations = new List<OfferEvaluation>();
             var reqTexts = requirements.Select(r => r.RequirementText).ToList();
             var reqEmbeddings = await _geminiService.GetEmbeddingsBatchAsync(reqTexts);
-
+            var existingTender = await _dbContext.Tenders.FindAsync(tenderId);
+            if (existingTender == null)
+            {
+                var newTender = new Tender 
+                { 
+                    Id = tenderId, 
+                    Description = "Auto-created during evaluation process" 
+                };
+                _dbContext.Tenders.Add(newTender);
+                await _dbContext.SaveChangesAsync();
+            }
             foreach (var vendor in vendorNames)
             {
                 var evaluation = new OfferEvaluation
