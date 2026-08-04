@@ -107,6 +107,11 @@
     <script>
         let vendorQueue = [];
 
+        function removeVendor(index) {
+            vendorQueue.splice(index, 1); 
+            updateVendorUI(); 
+        }
+
         function addVendor() {
             const vName = document.getElementById('vendorName').value.trim();
             const vTechFile = document.getElementById('vendorTechFile').files[0];
@@ -128,13 +133,20 @@
         function updateVendorUI() {
             const listDiv = document.getElementById('vendorList');
             if (vendorQueue.length === 0) { listDiv.innerHTML = "No vendors added yet."; return; }
-            listDiv.innerHTML = vendorQueue.map(v => 
-                `<div class="vendor-item">✅ <strong>${v.name}</strong><br>
-                <span style="color: #64748b;">Tech:</span> ${v.techFile.name}<br>
-                <span style="color: #64748b;">Fin:</span> ${v.finFile.name}</div>`
+            
+            listDiv.innerHTML = vendorQueue.map((v, index) => 
+                `<div class="vendor-item" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding: 10px 0;">
+                    <div>
+                        ✅ <strong>${v.name}</strong><br>
+                        <span style="color: #64748b;">Tech:</span> ${v.techFile.name}<br>
+                        <span style="color: #64748b;">Fin:</span> ${v.finFile.name}
+                    </div>
+                    <button onclick="removeVendor(${index})" style="background: #dc2626; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">🗑️ Delete</button>
+                </div>`
             ).join('');
         }
 
+        let dailyQuota = localStorage.getItem('meditender_quota') ? parseInt(localStorage.getItem('meditender_quota')) : 100;
         async function processUploads() {
             const standardFile = document.getElementById('standardFile').files[0];
             const statusMsg = document.getElementById('statusMessage');
@@ -148,7 +160,25 @@
             if (!standardFile) { alert("Please upload the Standard Specifications file."); return; }
             if (vendorQueue.length === 0) { alert("Please add at least one vendor offer."); return; }
 
-            // UI Reset for upload start
+            let costPerVendor = 15; 
+            let expectedCost = vendorQueue.length * costPerVendor; 
+
+            if (expectedCost > dailyQuota) {
+                alert(`❌ Your current balance (${dailyQuota} points) isn't enough for this operation which requires (${expectedCost} points).\nYou have exhausted your daily AI quota!`);
+                return; 
+            }
+
+            let confirmMessage = `The analysis will consume ${expectedCost} points from your daily quota.\nAvailable balance: ${dailyQuota} points.\nRemaining balance after operation: ${dailyQuota - expectedCost} points.\n\nDo you confirm to start the analysis?`;
+            
+            if (!confirm(confirmMessage)) {
+                console.log("Analysis cancelled by user.");
+                return; 
+            }
+
+            dailyQuota -= expectedCost;
+            localStorage.setItem('meditender_quota', dailyQuota);
+            // =======================================================
+
             startBtn.disabled = true;
             statusMsg.style.display = "none";
             progressContainer.style.display = "block";

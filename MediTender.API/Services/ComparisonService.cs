@@ -71,7 +71,7 @@ namespace MediTender.API.Services
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
 
-                        var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 5);
+                        var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 15);
 
                         foreach (var result in searchResults)
                         {
@@ -93,7 +93,7 @@ namespace MediTender.API.Services
 
                     Return ONLY a valid JSON array of objects. Each object must exactly match a requirement and have the following keys:
                     - ""RequirementText"": string (exact match from the provided list)
-                    - ""Status"": string (MUST BE EXACTLY ONE OF: ""Met"", ""Partially Met"", or ""Not Met"". If it is missing or not mentioned, you MUST use ""Not Met"")
+                    - ""Status"": string (MUST BE EXACTLY ONE OF: ""Met"", ""Partially Met"", ""Not Met"", or ""Not Mentioned"". If there is no evidence or the context does not specify, use ""Not Mentioned"")
                     - ""Evidence"": Exact quote from the context supporting the status. If no context exists, return ""No evidence found.""
                     - ""Score"": integer from 0 to 10.
                     ";
@@ -113,13 +113,18 @@ namespace MediTender.API.Services
                             var req = requirements[i];
                             var aiDetail = i < arrayLength ? parsedArray[i] : default;
 
+                            int baseScore = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Score").GetInt32() : 0;
+        
+                            int weight = req.IsMandatory ? 2 : 1; 
+                            int weightedScore = baseScore * weight;
+
                             var detail = new EvaluationDetail
                             {
                                 Requirement = req.RequirementText,
                                 IsMandatory = req.IsMandatory, 
                                 Status = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Status").GetString() ?? "Not Met" : "Error",
-                                Evidence = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Evidence").GetString() ?? "" : "AI missed this requirement.",
-                                Score = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Score").GetInt32() : 0
+                                Evidence = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Evidence").GetString() ?? "" : "No evidence found.",
+                                Score = weightedScore 
                             };
 
                             evaluation.Details.Add(detail);
@@ -147,30 +152,38 @@ namespace MediTender.API.Services
                     }
                 }
 
-                bool hasFailedMandatory = evaluation.Details.Any(d => d.IsMandatory && (d.Status != "Met" && d.Status != "Partially Met"));
-                bool isTechnicallyAccepted = !hasFailedMandatory;
-                evaluation.FinalDecision = isTechnicallyAccepted ? "Accepted" : "Rejected";
+                bool hasFailedMandatory = evaluation.Details.Any(d => d.IsMandatory && (d.Status == "Not Met" || d.Status == "Error"));
 
-                _dbContext.OfferEvaluations.Add(evaluation);
-                allEvaluations.Add(evaluation);
+                bool hasPartialOrMissingMandatory = evaluation.Details.Any(d => d.IsMandatory && (d.Status == "Partially Met" || d.Status == "Not Mentioned"));
 
-                await _financialService.EvaluateFinancialOfferAsync(
-                    tenderId: tenderId, 
-                    vendorName: vendor, 
-                    isTechnicallyAccepted: isTechnicallyAccepted, 
-                    technicalScore: evaluation.TotalScore
-                );
+                if (hasFailedMandatory)
+                {
+                    evaluation.FinalDecision = "Recommended for Rejection";
+                }
+                else if (hasPartialOrMissingMandatory)
+                {
+                    evaluation.FinalDecision = "Pending Manual Review";
+                }
+                else
+                {
+                    evaluation.FinalDecision = "Recommended for Acceptance";
+                }
+
+                bool openFinancialEnvelope = evaluation.FinalDecision == "Recommended for Acceptance" || evaluation.FinalDecision == "Pending Manual Review";
                 var finOffer = await _financialService.EvaluateFinancialOfferAsync(
                     tenderId: tenderId, 
                     vendorName: vendor, 
-                    isTechnicallyAccepted: isTechnicallyAccepted, 
+                    isTechnicallyAccepted: openFinancialEnvelope,
                     technicalScore: evaluation.TotalScore
                 );
                 
-                evaluation.TotalPrice = finOffer.TotalPrice; // <-- السطر الجديد
+                evaluation.TotalPrice = finOffer.TotalPrice; 
 
                 _dbContext.OfferEvaluations.Add(evaluation);
                 allEvaluations.Add(evaluation);
+
+                Console.WriteLine($"[Rate Limit Protection] Waiting 15 seconds before evaluating the next vendor...");
+                await Task.Delay(15000); 
             }
 
             await _dbContext.SaveChangesAsync();

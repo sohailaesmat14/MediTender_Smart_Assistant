@@ -36,7 +36,6 @@ namespace MediTender.API.Services
             {
                 offer.AiRejectionReason = "Rejected technically. Financial envelope not opened.";
                 _dbContext.VendorOffers.Add(offer);
-                await _dbContext.SaveChangesAsync();
                 return offer;
             }
 
@@ -96,7 +95,6 @@ namespace MediTender.API.Services
             }
 
             _dbContext.VendorOffers.Add(offer);
-            await _dbContext.SaveChangesAsync();
 
             return offer;
         }

@@ -41,6 +41,7 @@
         
         .price-tag { font-size: 18px; font-weight: bold; color: #047857; }
         .outlier-tag { background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px; }
+        .status-missing { color: #6b7280; font-weight: bold; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 12px;}
     </style>
 </head>
 <body>
@@ -53,30 +54,61 @@
     </div>
 
     <script>
+        let globalEvaluations = []; 
+
+
         document.addEventListener("DOMContentLoaded", () => {
             const rawData = sessionStorage.getItem('meditender_evaluations');
             if (!rawData) {
                 document.getElementById('dashboardContent').innerHTML = "<h2 style='text-align:center; color:red;'>No data found. Please run the analysis first.</h2>";
                 return;
             }
-            const evaluations = JSON.parse(rawData);
-            generateBIDashboard(evaluations);
+            globalEvaluations = JSON.parse(rawData);
+            generateBIDashboard();
         });
 
-        function generateBIDashboard(evaluations) {
+        window.overrideItem = function(vendorName, reqText) {
+            let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
+            if (!vendor) return;
+
+            let detail = vendor.details.find(d => d.requirement === reqText);
+            if (detail) {
+                detail.status = "Met";
+                detail.evidence = "✅ Manually verified by committee.";
+                detail.score = detail.isMandatory ? 20 : 10;
+                
+                vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
+                
+                let hasFailedMandatory = vendor.details.some(d => d.isMandatory && (d.status === "Not Met" || d.status === "Error"));
+                let hasPartialOrMissing = vendor.details.some(d => d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned"));
+                
+                if (hasFailedMandatory) {
+                    vendor.finalDecision = "Recommended for Rejection";
+                } else if (hasPartialOrMissing) {
+                    vendor.finalDecision = "Pending Manual Review";
+                } else {
+                    vendor.finalDecision = "Recommended for Acceptance";
+                }
+                
+                sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
+                generateBIDashboard();
+            }
+        };
+
+        function generateBIDashboard() {
             const content = document.getElementById('dashboardContent');
             
             // --- 1. Data Preparation ---
             const reqMap = {}; 
-            evaluations[0].details.forEach(d => {
+            globalEvaluations[0].details.forEach(d => {
                 reqMap[d.requirement] = { text: d.requirement, isMandatory: d.isMandatory, vendorResults: {} };
             });
 
             let acceptedVendors = [];
             let allPrices = [];
             
-            evaluations.forEach(ev => {
-                if (ev.finalDecision === "Accepted" && ev.totalPrice > 0) {
+            globalEvaluations.forEach(ev => {
+                if ((ev.finalDecision === "Recommended for Acceptance" || ev.finalDecision === "Pending Manual Review") && ev.totalPrice > 0) {
                     acceptedVendors.push(ev);
                 }
                 if (ev.totalPrice > 0) allPrices.push(ev.totalPrice);
@@ -87,16 +119,17 @@
             });
 
             // --- 2. BI Calculations ---
-            // A. Value for Money & Outliers
-            acceptedVendors.sort((a, b) => a.totalPrice - b.totalPrice);
-            const bestValueVendor = acceptedVendors.length > 0 ? acceptedVendors[0] : null;
+            // A. Value for Money (Best Price for Accepted ONLY)
+            let fullyAccepted = acceptedVendors.filter(v => v.finalDecision === "Recommended for Acceptance");
+            fullyAccepted.sort((a, b) => a.totalPrice - b.totalPrice);
+            const bestValueVendor = fullyAccepted.length > 0 ? fullyAccepted[0] : null;
             
             const avgPrice = allPrices.length > 0 ? allPrices.reduce((a,b) => a+b, 0) / allPrices.length : 0;
-            const outlierThreshold = avgPrice * 0.6; // 40% below average is suspicious
+            const outlierThreshold = avgPrice * 0.6; 
 
             // B. Gap Analysis & Review Flags & Evidence Coverage
-            let gapCount = 0; // All failed
-            let reviewFlagsCount = 0; // Mandatory but partially met/error
+            let gapCount = 0; 
+            let reviewFlagsCount = 0; 
             let evidenceFound = 0;
             let totalMandatory = 0;
 
@@ -107,7 +140,7 @@
                 Object.values(req.vendorResults).forEach(vRes => {
                     if (vRes.status === "Met" || vRes.status === "Partially Met") allFailed = false;
                     
-                    if (req.isMandatory && (vRes.status === "Partially Met" || vRes.status === "Error")) {
+                    if (req.isMandatory && (vRes.status === "Partially Met" || vRes.status === "Not Mentioned")) {
                         reviewFlagsCount++;
                     }
                     if (req.isMandatory && vRes.evidence && !vRes.evidence.includes("No evidence found")) {
@@ -117,45 +150,42 @@
                 if (allFailed) gapCount++;
             });
             
-            // Average coverage across all vendors
-            let coveragePercent = totalMandatory > 0 ? Math.round((evidenceFound / (totalMandatory * evaluations.length)) * 100) : 0;
+            let coveragePercent = totalMandatory > 0 ? Math.round((evidenceFound / (totalMandatory * globalEvaluations.length)) * 100) : 0;
 
-            // --- 3. Executive Narrative (AI-like Summary) ---
-            let narrative = `Based on the AI evaluation of ${evaluations.length} vendors, `;
-            if (acceptedVendors.length > 0) {
-                narrative += `<strong>${acceptedVendors.length} vendors</strong> passed the technical requirements. `;
+            // --- 3. Executive Narrative ---
+            let narrative = `Based on the AI evaluation of ${globalEvaluations.length} vendors, `;
+            if (fullyAccepted.length > 0) {
+                narrative += `<strong>${fullyAccepted.length} vendors</strong> are currently recommended for acceptance. `;
                 narrative += `The most optimal "Value for Money" is offered by <strong>${bestValueVendor.vendorName}</strong> at <strong>${bestValueVendor.totalPrice.toLocaleString()} EGP</strong>. `;
             } else {
-                narrative += `<strong>NO vendors</strong> passed all mandatory technical requirements. The tender might need to be re-evaluated or re-issued. `;
+                narrative += `<strong>NO vendors</strong> are fully accepted yet. Some are pending manual review for missing administrative documents. `;
             }
             if (gapCount > 0) {
-                narrative += `Warning: There are ${gapCount} specific requirements where ALL vendors failed, suggesting the specifications might be overly restrictive for the current market.`;
+                narrative += `Warning: There are ${gapCount} specific requirements where ALL vendors failed or missed data.`;
             }
 
             // --- 4. Render HTML ---
             let html = `
-                <!-- Executive Summary -->
                 <div class="summary-card">
                     <h2>🤖 AI Executive Summary</h2>
                     <div class="summary-text">${narrative}</div>
                 </div>
 
-                <!-- BI Insights -->
                 <div class="insights-grid">
                     <div class="insight-box box-success">
-                        <h3>🏆 Value for Money (Best Price)</h3>
+                        <h3>🏆 Value for Money (Accepted Only)</h3>
                         <div class="insight-value">${bestValueVendor ? bestValueVendor.totalPrice.toLocaleString() + ' EGP' : 'N/A'}</div>
-                        <div class="insight-desc">${bestValueVendor ? bestValueVendor.vendorName : 'No technically accepted vendors'}</div>
+                        <div class="insight-desc">${bestValueVendor ? bestValueVendor.vendorName : 'Approve a vendor to see best price'}</div>
                     </div>
                     <div class="insight-box box-warning">
                         <h3>⚠️ Market Gap Analysis</h3>
                         <div class="insight-value">${gapCount} Items</div>
-                        <div class="insight-desc">Requirements where ALL vendors failed (Check if over-specified).</div>
+                        <div class="insight-desc">Requirements where ALL vendors failed or missed info.</div>
                     </div>
                     <div class="insight-box box-danger">
                         <h3>🔍 Review Flags (Manual Review)</h3>
                         <div class="insight-value">${reviewFlagsCount} Flags</div>
-                        <div class="insight-desc">Mandatory items marked as 'Partially Met' needing engineering judgment.</div>
+                        <div class="insight-desc">Mandatory items marked as 'Partially Met' or 'Not Mentioned'.</div>
                     </div>
                     <div class="insight-box">
                         <h3>📄 Evidence Coverage</h3>
@@ -164,19 +194,24 @@
                     </div>
                 </div>
 
-                <!-- Comparison Matrix -->
                 <div class="matrix-container">
                     <h2>📑 Comprehensive Technical & Financial Matrix</h2>
                     <table>
                         <thead>
                             <tr>
                                 <th class="req-col">Requirement / Standard</th>
-                                ${evaluations.map(ev => {
+                                ${globalEvaluations.map(ev => {
                                     let isOutlier = (ev.totalPrice > 0 && ev.totalPrice < outlierThreshold) ? '<span class="outlier-tag">Abnormally Low</span>' : '';
+                                    
+                                    let actionBtn = ev.finalDecision === 'Pending Manual Review' ? 
+                                        `<button onclick="overrideDecision('${ev.vendorName}')" style="margin-top:8px; background:#2563eb; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; width:100%; font-weight:bold;">✅ Manual Override</button>` : '';
+
+                                    let statusColor = ev.finalDecision === 'Recommended for Acceptance' ? '#059669' : (ev.finalDecision.includes('Review') ? '#d97706' : '#dc2626');
+
                                     return `<th>
-                                        ${ev.vendorName} 
-                                        <br><span style="font-size:12px; color: ${ev.finalDecision==='Accepted'?'#059669':'#dc2626'}">${ev.finalDecision}</span>
-                                        <br><span class="price-tag">${ev.totalPrice > 0 ? ev.totalPrice.toLocaleString() + ' EGP' : 'N/A'}</span>
+                                        <div style="font-size: 16px;">${ev.vendorName}</div>
+                                        <div style="font-size:12px; font-weight:bold; color: ${statusColor}; margin: 5px 0;">${ev.finalDecision}</div>
+                                        <div class="price-tag">${ev.totalPrice > 0 ? ev.totalPrice.toLocaleString() + ' EGP' : 'N/A'}</div>
                                         ${isOutlier}
                                     </th>`;
                                 }).join('')}
@@ -190,14 +225,26 @@
                                         ${req.text} 
                                         ${req.isMandatory ? '<span style="color:red; font-size:12px;">(Mandatory)</span>' : ''}
                                     </td>
-                                    ${evaluations.map(ev => {
+                                    ${globalEvaluations.map(ev => {
                                         const res = req.vendorResults[ev.vendorName];
-                                        let badgeClass = res.status === 'Met' ? 'status-met' : (res.status === 'Partially Met' ? 'status-partial' : 'status-notmet');
-                                        let reviewFlag = (req.isMandatory && res.status === 'Partially Met') ? '⚠️ Review' : '';
-                                        return `<td>
+                                        let badgeClass = res.status === 'Met' ? 'status-met' : 
+                                                         (res.status === 'Partially Met' ? 'status-partial' : 
+                                                         (res.status === 'Not Mentioned' ? 'status-missing' : 'status-notmet'));
+                                        
+                                        let reviewFlag = (req.isMandatory && (res.status === 'Partially Met' || res.status === 'Not Mentioned')) ? '⚠️ Review' : '';
+                                        let maxScore = req.isMandatory ? 20 : 10;
+
+                                        return `<td style="position: relative;">
                                             <span class="${badgeClass}">${res.status}</span> 
                                             <span style="font-size:11px; color:#d97706; font-weight:bold;">${reviewFlag}</span>
-                                            <br><small style="color:#64748b;">Score: ${res.score}/10</small>
+                                            <br><small style="color:#64748b;">Score: ${res.score}/${maxScore}</small>
+                                            
+                                            ${(req.isMandatory && (res.status === 'Partially Met' || res.status === 'Not Mentioned')) ? 
+                                                `<button onclick="overrideItem('${ev.vendorName}', '${req.text.replace(/'/g, "\\'")}')" 
+                                                style="margin-top: 5px; display: block; background: #3b82f6; color: white; border: none; border-radius: 3px; font-size: 10px; padding: 3px 6px; cursor: pointer;">
+                                                ✓ Approve Item
+                                                </button>` 
+                                            : ''}
                                         </td>`;
                                     }).join('')}
                                 </tr>`;
@@ -206,7 +253,6 @@
                     </table>
                 </div>
             `;
-
             content.innerHTML = html;
         }
     </script>

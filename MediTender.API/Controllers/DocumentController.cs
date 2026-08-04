@@ -175,7 +175,7 @@ namespace MediTender.API.Controllers
 
                 await qdrantClient.DeleteCollectionAsync("meditender_collection_v2");
                 await qdrantClient.CreateCollectionAsync("meditender_collection_v2", 
-                    new Qdrant.Client.Grpc.VectorParams { Size = 768, Distance = Qdrant.Client.Grpc.Distance.Cosine });
+                    new Qdrant.Client.Grpc.VectorParams { Size = 3072, Distance = Qdrant.Client.Grpc.Distance.Cosine });
 
                 return Ok(new { Message = "System has been completely reset and is ready for a new demo!" });
             }
