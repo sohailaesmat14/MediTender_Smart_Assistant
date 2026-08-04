@@ -104,7 +104,8 @@
                 sessionStorage.setItem('meditender_evaluations', JSON.stringify(evaluations));
                 
                 statusText.innerText = "Analysis Complete! Redirecting to Decision Matrix...";
-                window.location.href = 'dashboard.html';
+                window.onbeforeunload = null;
+                window.location.replace('dashboard.html');
 
             } catch (err) {
                 statusText.innerText = "System Error: " + err.message;
