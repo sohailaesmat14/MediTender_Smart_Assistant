@@ -77,10 +77,10 @@
                 <label>Vendor Name:</label>
                 <input type="text" id="vendorName" placeholder="e.g., NovaCare">
                 
-                <label>Technical Offer PDF (المظروف الفني):</label>
+                <label>Technical Offer PDF :</label>
                 <input type="file" id="vendorTechFile" accept="application/pdf">
 
-                <label>Financial Offer PDF (المظروف المالي):</label>
+                <label>Financial Offer PDF:</label>
                 <input type="file" id="vendorFinFile" accept="application/pdf">
 
                 <button class="add-btn" onclick="addVendor()">Add Vendor to Queue</button>
@@ -120,7 +120,6 @@
             vendorQueue.push({ name: vName, techFile: vTechFile, finFile: vFinFile });
             updateVendorUI();
             
-            // تنظيف الحقول بعد الإضافة
             document.getElementById('vendorName').value = "";
             document.getElementById('vendorTechFile').value = "";
             document.getElementById('vendorFinFile').value = "";
@@ -157,7 +156,6 @@
             progressBar.style.backgroundColor = "#2563eb";
             progressText.style.color = "#2563eb";
             
-            // الحسبة اتغيرت: ملف Standard + (ملف فني + ملف مالي لكل شركة)
             let totalFiles = 1 + (vendorQueue.length * 2); 
             let completedFiles = 0;
 
@@ -175,7 +173,7 @@
                 const stdFormData = new FormData();
                 stdFormData.append("file", standardFile);
                 stdFormData.append("documentType", "Standard");
-                stdFormData.append("tenderId", 1); // <--- ضفنا السطر هنا للملف الأساسي
+                stdFormData.append("tenderId", 1); 
                 
                 let res = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: stdFormData });
                 if (!res.ok) throw new Error("Failed to upload standard specifications.");
@@ -187,25 +185,24 @@
                 for (let i = 0; i < vendorQueue.length; i++) {
                     const v = vendorQueue[i];
                     
-                    // رفع المظروف الفني
                     progressStep.innerText = `Uploading Technical offer for vendor: ${v.name}...`;
                     const vTechFormData = new FormData();
                     vTechFormData.append("file", v.techFile);
                     vTechFormData.append("documentType", "TechnicalOffer");
                     vTechFormData.append("vendorName", v.name);
-                    vTechFormData.append("tenderId", 1); // <--- وضفناه هنا للملف الفني
+                    vTechFormData.append("tenderId", 1); 
 
                     let vTechRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vTechFormData });
                     if (!vTechRes.ok) throw new Error(`Failed to upload technical offer for ${v.name}.`);
                     updateProgress(`Technical Offer for ${v.name} uploaded successfully.`);
 
-                    // رفع المظروف المالي
+                    
                     progressStep.innerText = `Uploading Financial offer for vendor: ${v.name}...`;
                     const vFinFormData = new FormData();
                     vFinFormData.append("file", v.finFile);
                     vFinFormData.append("documentType", "FinancialOffer");
                     vFinFormData.append("vendorName", v.name);
-                    vFinFormData.append("tenderId", 1); // <--- وضفناه هنا للملف المالي
+                    vFinFormData.append("tenderId", 1); 
 
                     let vFinRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vFinFormData });
                     if (!vFinRes.ok) throw new Error(`Failed to upload financial offer for ${v.name}.`);

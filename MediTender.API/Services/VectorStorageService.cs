@@ -22,7 +22,6 @@ namespace MediTender.API.Services
             _logger = logger;
         }
 
-        // غيري الـ Signature بتاع الميثود عشان تستقبل tenderId
         public async Task SaveChunksToQdrantAsync(string fileName, string documentType, string vendorName, List<string> chunks, int tenderId)
         {
             try

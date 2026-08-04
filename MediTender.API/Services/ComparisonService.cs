@@ -53,12 +53,10 @@ namespace MediTender.API.Services
                     guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
                     guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
 
-                    // بنعمل سيرش سريع جداً عشان نتأكد إن في أي نصوص موجودة
                     var guardCheck = await _qdrantClient.SearchAsync(_collectionName, reqEmbeddings.First(), guardFilter, limit: 1);
 
                     if (guardCheck.Count == 0)
                     {
-                        // لو ملقاش داتا، هيضرب Exception واضح جداً يمنع الـ AI من التأليف
                         throw new Exception($"[Data Missing] No Technical Offer found for vendor '{vendor}' under Tender ID '{tenderId}'. Database IDs might be out of sync. Please hit Reset System and try again.");
                     }
                     for (int i = 0; i < requirements.Count; i++)
@@ -68,7 +66,6 @@ namespace MediTender.API.Services
                         var reqEmbedding = reqEmbeddings[i]; 
                         
                         var filter = new Filter();
-                        // السطر الجديد اللي هيمنع تداخل الداتا تماماً!
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "tenderId", Match = new Match { Keyword = tenderId.ToString() } } });
                         
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
@@ -163,6 +160,17 @@ namespace MediTender.API.Services
                     isTechnicallyAccepted: isTechnicallyAccepted, 
                     technicalScore: evaluation.TotalScore
                 );
+                var finOffer = await _financialService.EvaluateFinancialOfferAsync(
+                    tenderId: tenderId, 
+                    vendorName: vendor, 
+                    isTechnicallyAccepted: isTechnicallyAccepted, 
+                    technicalScore: evaluation.TotalScore
+                );
+                
+                evaluation.TotalPrice = finOffer.TotalPrice; // <-- السطر الجديد
+
+                _dbContext.OfferEvaluations.Add(evaluation);
+                allEvaluations.Add(evaluation);
             }
 
             await _dbContext.SaveChangesAsync();

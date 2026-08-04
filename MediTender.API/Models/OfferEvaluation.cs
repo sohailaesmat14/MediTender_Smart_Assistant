@@ -9,6 +9,7 @@ namespace MediTender.API.Models
         public string FinalDecision { get; set; } = string.Empty;
         public List<EvaluationDetail> Details { get; set; } = new();
         public int TenderId { get; set; }
+        public decimal TotalPrice { get; set; } 
     }
 
     public class EvaluationDetail

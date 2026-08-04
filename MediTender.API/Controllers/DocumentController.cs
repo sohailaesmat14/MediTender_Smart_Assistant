@@ -36,7 +36,6 @@ namespace MediTender.API.Controllers
             if (string.IsNullOrWhiteSpace(request.DocumentType))
                 return BadRequest("Document type is required.");
 
-            // تعديل بسيط هنا عشان يشتغل مع "TechnicalOffer" و "FinancialOffer"
             if (request.DocumentType.Contains("Offer") && string.IsNullOrWhiteSpace(request.VendorName))
                 return BadRequest("Vendor name is required for offers.");
 
@@ -163,7 +162,6 @@ namespace MediTender.API.Controllers
         {
             try
             {
-                // 1. مسح وتنظيف جداول الـ SQL
                 _dbContext.VendorOffers.RemoveRange(_dbContext.VendorOffers);
                 _dbContext.EvaluationDetails.RemoveRange(_dbContext.EvaluationDetails);
                 _dbContext.OfferEvaluations.RemoveRange(_dbContext.OfferEvaluations);
@@ -171,12 +169,10 @@ namespace MediTender.API.Controllers
                 _dbContext.TenderInteractions.RemoveRange(_dbContext.TenderInteractions);
                 await _dbContext.SaveChangesAsync();
 
-                // السطور الجديدة: تصفير عدادات الـ Identity عشان نمنع مشكلة الـ Ghost ID
                 await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('Tenders', RESEED, 0)");
                 await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('VendorOffers', RESEED, 0)");
                 await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('OfferEvaluations', RESEED, 0)");
 
-                // 2. مسح وتنظيف قاعدة بيانات Qdrant
                 await qdrantClient.DeleteCollectionAsync("meditender_collection_v2");
                 await qdrantClient.CreateCollectionAsync("meditender_collection_v2", 
                     new Qdrant.Client.Grpc.VectorParams { Size = 768, Distance = Qdrant.Client.Grpc.Distance.Cosine });
