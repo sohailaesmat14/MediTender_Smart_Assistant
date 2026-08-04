@@ -48,6 +48,13 @@
     </div>
 
     <script>
+        window.addEventListener('beforeunload', function (e) {
+            // This message might not be shown in modern browsers, 
+            // but returning a string triggers the browser's default warning dialog.
+            const confirmationMessage = 'Are you sure you want to leave? Your progress will be lost.';
+            e.returnValue = confirmationMessage; 
+            return confirmationMessage;
+        });
         document.addEventListener("DOMContentLoaded", async () => {
             const standardFile = sessionStorage.getItem('meditender_standard_file');
             const vendorsRaw = sessionStorage.getItem('meditender_vendors');
