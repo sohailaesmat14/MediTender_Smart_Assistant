@@ -55,7 +55,7 @@
 
     <script>
         let globalEvaluations = []; 
-        
+
         window.addEventListener('beforeunload', function (e) {
             // This message might not be shown in modern browsers, 
             // but returning a string triggers the browser's default warning dialog.
@@ -178,6 +178,11 @@
                     <div class="summary-text">${narrative}</div>
                 </div>
 
+                <div class="charts-container" style="width: 80%; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h3 style="text-align: center; color: #334155;">Total Technical Score per Vendor</h3>
+                    <canvas id="totalScoreChart"></canvas>
+                </div>
+
                 <div class="insights-grid">
                     <div class="insight-box box-success">
                         <h3>🏆 Value for Money (Accepted Only)</h3>
@@ -261,6 +266,57 @@
                 </div>
             `;
             content.innerHTML = html;
+            // Function to render the Total Score Bar Chart
+            function renderTotalScoreChart() {
+                const ctx = document.getElementById('totalScoreChart').getContext('2d');
+                
+                // Extract labels (Vendor Names) and data (Total Scores) from globalEvaluations
+                const vendorNames = globalEvaluations.map(ev => ev.vendorName);
+                const vendorScores = globalEvaluations.map(ev => ev.totalScore);
+                
+                // Define dynamic colors based on the final decision
+                const barColors = globalEvaluations.map(ev => {
+                    if (ev.finalDecision === "Recommended for Acceptance") return 'rgba(16, 185, 129, 0.7)'; // Green
+                    if (ev.finalDecision === "Pending Manual Review") return 'rgba(245, 158, 11, 0.7)'; // Yellow/Orange
+                    return 'rgba(239, 68, 68, 0.7)'; // Red
+                });
+
+                const borderColors = barColors.map(color => color.replace('0.7', '1'));
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: vendorNames,
+                        datasets: [{
+                            label: 'Total Evaluation Score',
+                            data: vendorScores,
+                            backgroundColor: barColors,
+                            borderColor: borderColors,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Score'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false // Hide legend since we only have one dataset
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Call the function immediately after injecting the HTML
+            renderTotalScoreChart();
         }
     </script>
 </body>
