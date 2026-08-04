@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediProcure AI - BI Decision Matrix</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f1f5f9; color: #333; }
@@ -228,6 +230,32 @@
                 </div>
 
                 <div class="matrix-container">
+                    <div class="dashboard-controls" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        
+                        <input type="text" id="searchInput" placeholder="Search requirements..." onkeyup="applyTableFilters()" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 200px;">
+                        
+                        <select id="statusFilter" onchange="applyTableFilters()" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="All">All Statuses</option>
+                            <option value="Met">Met Only</option>
+                            <option value="Partially Met">Partially Met</option>
+                            <option value="Not Mentioned">Not Mentioned</option>
+                            <option value="Not Met">Not Met / Error</option>
+                        </select>
+
+                        <select id="vendorFilter" onchange="applyTableFilters()" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="All">All Vendors</option>
+                        </select>
+
+                        <label style="display: flex; align-items: center; gap: 5px; font-weight: bold; color: #334155; cursor: pointer;">
+                            <input type="checkbox" id="mandatoryFilter" onchange="applyTableFilters()"> Mandatory Only
+                        </label>
+
+                        <div style="margin-left: auto; display: flex; gap: 10px;">
+                            <button onclick="exportToExcel()" style="background: #10b981; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">📊 Export Excel</button>
+                            <button onclick="exportToPDF()" style="background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">📄 Export PDF</button>
+                        </div>
+                    </div>
+
                     <h2>📑 Comprehensive Technical & Financial Matrix</h2>
                     <table>
                         <thead>
@@ -556,6 +584,82 @@
             renderStatusDistributionChart();
             renderTotalScoreChart();
         }
+        function populateVendorFilter() {
+            const vendorSelect = document.getElementById('vendorFilter');
+            globalEvaluations.forEach(ev => {
+                let option = document.createElement('option');
+                option.value = ev.vendorName;
+                option.text = ev.vendorName;
+                vendorSelect.appendChild(option);
+            });
+        }
+
+        function applyTableFilters() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const statusVal = document.getElementById('statusFilter').value;
+            const vendorVal = document.getElementById('vendorFilter').value;
+            const mandatoryOnly = document.getElementById('mandatoryFilter').checked;
+
+            const tbody = document.querySelector('.matrix-container tbody');
+            const rows = tbody.querySelectorAll('tr');
+
+            rows.forEach(row => {
+                const reqText = row.cells[0].innerText.toLowerCase();
+                const isMandatory = row.cells[0].innerText.includes('Mandatory');
+                
+                let showRow = true;
+
+                if (searchText && !reqText.includes(searchText)) {
+                    showRow = false;
+                }
+
+                if (mandatoryOnly && !isMandatory) {
+                    showRow = false;
+                }
+
+                let hasMatchingStatus = false;
+                
+                for (let i = 1; i < row.cells.length; i++) {
+                    const cellText = row.cells[i].innerText;
+                    const currentVendor = globalEvaluations[i - 1].vendorName;
+
+                    if (vendorVal !== 'All' && currentVendor !== vendorVal) {
+                        continue; 
+                    }
+
+                    if (statusVal === 'All' || cellText.includes(statusVal)) {
+                        hasMatchingStatus = true;
+                    }
+                }
+
+                if (statusVal !== 'All' && !hasMatchingStatus) {
+                    showRow = false;
+                }
+
+                row.style.display = showRow ? '' : 'none';
+            });
+        }
+
+        function exportToExcel() {
+            const table = document.querySelector('.matrix-container table');
+            const wb = XLSX.utils.table_to_book(table, { sheet: "MediTender Analysis" });
+            XLSX.writeFile(wb, 'MediTender_Analysis_Report.xlsx');
+        }
+
+        function exportToPDF() {
+            const element = document.querySelector('.matrix-container');
+            const opt = {
+                margin:       0.5,
+                filename:     'MediTender_Analysis_Report.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Call this inside generateBIDashboard() at the very end to fill the vendor dropdown
+        setTimeout(populateVendorFilter, 500);
     </script>
 </body>
 </html>
