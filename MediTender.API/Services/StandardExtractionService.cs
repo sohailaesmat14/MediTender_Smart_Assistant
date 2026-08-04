@@ -26,7 +26,10 @@ namespace MediTender.API.Services
             var filter = new Filter();
             filter.Must.Add(new Condition { Field = new FieldCondition { Key = "fileName", Match = new Match { Keyword = fileName } } });
 
-            var searchResults = await _qdrantClient.SearchAsync(_collectionName, searchVector, filter, limit: 10);
+            var searchResults = await _qdrantClient.SearchAsync(
+            collectionName: _collectionName,
+            vector: searchVector,
+            limit: 5);
 
             var contextBuilder = new StringBuilder();
             foreach (var result in searchResults)

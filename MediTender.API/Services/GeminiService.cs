@@ -20,24 +20,25 @@ namespace MediTender.API.Services
     {
         private readonly string _googleApiKey;
         private readonly string _chatModel;
+        private readonly HttpClient _httpClient;
 
-        public GeminiService(IConfiguration config)
+        public GeminiService(IConfiguration config, HttpClient httpClient)
         {
             _googleApiKey = config["Gemini:ApiKey"]?.Trim() ?? throw new Exception("Missing API Key");
-            _chatModel = config["Gemini:ChatModel"]?.Trim() ?? "gemini-3.5-flash";
+            _chatModel = config["Gemini:ChatModel"]?.Trim() ?? "gemini-flash-latest";
+            _httpClient = httpClient;
         }
 
         public async Task<string> GenerateChatResponseAsync(string prompt)
         {
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_chatModel}:generateContent?key={_googleApiKey}";
-            using var client = new HttpClient();
             var payload = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
             int maxRetries = 5;
             for (int i = 0; i < maxRetries; i++)
             {
-                var response = await client.PostAsync(url, content);
+                var response = await _httpClient.PostAsync(url, content);
                 var responseString = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
@@ -66,14 +67,13 @@ namespace MediTender.API.Services
         public async Task<float[]> GetEmbeddingAsync(string text)
         {
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={_googleApiKey}";
-            using var client = new HttpClient();
             var payload = new { model = "models/gemini-embedding-001", content = new { parts = new[] { new { text = text } } } };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
             int maxRetries = 5;
             for (int i = 0; i < maxRetries; i++)
             {
-                var response = await client.PostAsync(url, content);
+                var response = await _httpClient.PostAsync(url, content);
                 var responseString = await response.Content.ReadAsStringAsync();
                 
                 if (response.IsSuccessStatusCode)
@@ -101,51 +101,69 @@ namespace MediTender.API.Services
 
         public async Task<List<float[]>> GetEmbeddingsBatchAsync(List<string> texts)
         {
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={_googleApiKey}";
-            using var client = new HttpClient();
+            if (texts == null || !texts.Any()) return new List<float[]>();
 
-            var requests = texts.Select(text => new
+            var allEmbeddings = new List<float[]>();
+            int maxBatchSize = 15; 
+            for (int chunkIndex = 0; chunkIndex < texts.Count; chunkIndex += maxBatchSize)
             {
-                model = "models/gemini-embedding-001",
-                content = new { parts = new[] { new { text = text } } }
-            }).ToArray();
+                var currentChunkBatch = texts.Skip(chunkIndex).Take(maxBatchSize).ToList();
 
-            var payload = new { requests = requests };
-            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={_googleApiKey}";
 
-            int maxRetries = 5;
-            for (int i = 0; i < maxRetries; i++)
-            {
-                var response = await client.PostAsync(url, content);
-                var responseString = await response.Content.ReadAsStringAsync();
-
-                if (response.IsSuccessStatusCode)
+                var requests = currentChunkBatch.Select(text => new
                 {
-                    using var doc = JsonDocument.Parse(responseString);
-                    var embeddings = new List<float[]>();
-                    
-                    foreach (var element in doc.RootElement.GetProperty("embeddings").EnumerateArray())
+                    model = "models/gemini-embedding-001",
+                    content = new { parts = new[] { new { text = text } } }
+                }).ToArray();
+
+                var payload = new { requests = requests };
+                var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+                int maxRetries = 5;
+                bool success = false;
+
+                for (int i = 0; i < maxRetries; i++)
+                {
+                    var response = await _httpClient.PostAsync(url, content);
+                    var responseString = await response.Content.ReadAsStringAsync();
+
+                    if (response.IsSuccessStatusCode)
                     {
-                        embeddings.Add(element.GetProperty("values").EnumerateArray().Select(v => v.GetSingle()).ToArray());
+                        using var doc = JsonDocument.Parse(responseString);
+                        foreach (var element in doc.RootElement.GetProperty("embeddings").EnumerateArray())
+                        {
+                            allEmbeddings.Add(element.GetProperty("values").EnumerateArray().Select(v => v.GetSingle()).ToArray());
+                        }
+                        success = true;
+                        break;
                     }
-                    return embeddings;
+
+                    if ((int)response.StatusCode == 429 || (int)response.StatusCode == 503)
+                    {
+                        if (i == maxRetries - 1) 
+                            throw new Exception($"API Unavailable or Rate Limit Exceeded for Batch Embeddings.");
+                        
+                        string issue = (int)response.StatusCode == 429 ? "Rate Limit Hit" : "High Demand 503";
+                        Console.WriteLine($"[{issue} - Batch Embedding] Waiting 35 seconds before retry {i + 1}...");
+                        await Task.Delay(60000);
+                        continue;
+                    }
+
+                    Console.WriteLine($"[Google API Error] {responseString}");
+                    throw new Exception($"Google API Error ({(int)response.StatusCode}): {responseString}");
                 }
 
-                if ((int)response.StatusCode == 429 || (int)response.StatusCode == 503)
+                if (!success) break;
+
+                if (chunkIndex + maxBatchSize < texts.Count)
                 {
-                    if (i == maxRetries - 1) 
-                        throw new Exception($"API Unavailable or Rate Limit Exceeded for Batch Embeddings.");
-                    
-                    string issue = (int)response.StatusCode == 429 ? "Rate Limit Hit" : "High Demand 503";
-                    Console.WriteLine($"[{issue} - Batch Embedding] Waiting 35 seconds before retry {i + 1}...");
-                    await Task.Delay(35000);
-                    continue;
+                    Console.WriteLine($"[API Pacing] Sent a batch of 15 successfully. Waiting 5 seconds...");
+                    await Task.Delay(5000); 
                 }
-
-                Console.WriteLine($"[Google API Error] {responseString}");
-                throw new Exception($"Google API Error ({(int)response.StatusCode}): {responseString}");
             }
-            return new List<float[]>();
+
+            return allEmbeddings;
         }
     }
 }

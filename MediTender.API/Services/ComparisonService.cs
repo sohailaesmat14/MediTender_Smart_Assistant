@@ -12,19 +12,24 @@ namespace MediTender.API.Services
         private readonly QdrantClient _qdrantClient;
         private readonly ApplicationDbContext _dbContext;
         private readonly IGeminiService _geminiService;
+        private readonly IFinancialEvaluationService _financialService; 
         private readonly string _collectionName = "meditender_collection_v2";
 
-        public ComparisonService(QdrantClient qdrantClient, ApplicationDbContext dbContext, IGeminiService geminiService)
-        {
+        public ComparisonService(
+            QdrantClient qdrantClient, 
+            ApplicationDbContext dbContext, 
+            IGeminiService geminiService,
+            IFinancialEvaluationService financialService)
+            {
             _qdrantClient = qdrantClient;
             _dbContext = dbContext;
             _geminiService = geminiService;
-        }
+            _financialService = financialService; 
+            }
 
         public async Task<List<OfferEvaluation>> CompareVendorsAsync(int tenderId, List<Standard> requirements, List<string> vendorNames)
         {
             var allEvaluations = new List<OfferEvaluation>();
-
             var reqTexts = requirements.Select(r => r.RequirementText).ToList();
             var reqEmbeddings = await _geminiService.GetEmbeddingsBatchAsync(reqTexts);
 
@@ -43,7 +48,19 @@ namespace MediTender.API.Services
                 try
                 {
                     var contextBuilder = new StringBuilder();
-                    
+                    var guardFilter = new Filter();
+                    guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "tenderId", Match = new Match { Keyword = tenderId.ToString() } } });
+                    guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
+                    guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
+
+                    // بنعمل سيرش سريع جداً عشان نتأكد إن في أي نصوص موجودة
+                    var guardCheck = await _qdrantClient.SearchAsync(_collectionName, reqEmbeddings.First(), guardFilter, limit: 1);
+
+                    if (guardCheck.Count == 0)
+                    {
+                        // لو ملقاش داتا، هيضرب Exception واضح جداً يمنع الـ AI من التأليف
+                        throw new Exception($"[Data Missing] No Technical Offer found for vendor '{vendor}' under Tender ID '{tenderId}'. Database IDs might be out of sync. Please hit Reset System and try again.");
+                    }
                     for (int i = 0; i < requirements.Count; i++)
                     {
                         var req = requirements[i];
@@ -51,7 +68,10 @@ namespace MediTender.API.Services
                         var reqEmbedding = reqEmbeddings[i]; 
                         
                         var filter = new Filter();
-                        filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "Offer" } } });
+                        // السطر الجديد اللي هيمنع تداخل الداتا تماماً!
+                        filter.Must.Add(new Condition { Field = new FieldCondition { Key = "tenderId", Match = new Match { Keyword = tenderId.ToString() } } });
+                        
+                        filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
 
                         var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 5);
@@ -67,41 +87,51 @@ namespace MediTender.API.Services
 
                     var prompt = $@"
                     You are a Biomedical Procurement Expert. Evaluate the following JSON list of requirements against the provided document context from vendor '{vendor}'.
-                    
+
                     Requirements List:
                     {reqsJson}
-                    
+
                     Context:
                     '{contextBuilder}'
-                    
+
                     Return ONLY a valid JSON array of objects. Each object must exactly match a requirement and have the following keys:
                     - ""RequirementText"": string (exact match from the provided list)
-                    - ""Status"": ""Met"", ""Partially Met"", or ""Not Met""
+                    - ""Status"": string (MUST BE EXACTLY ONE OF: ""Met"", ""Partially Met"", or ""Not Met"". If it is missing or not mentioned, you MUST use ""Not Met"")
                     - ""Evidence"": Exact quote from the context supporting the status. If no context exists, return ""No evidence found.""
                     - ""Score"": integer from 0 to 10.
                     ";
 
                     var aiResponse = await _geminiService.GenerateChatResponseAsync(prompt);
-                    var cleanedJson = aiResponse.Replace("```json", "").Replace("```", "").Trim();
                     
-                    var parsedArray = JsonSerializer.Deserialize<JsonElement>(cleanedJson);
-
-                    foreach (var req in requirements)
+                    int startIndex = aiResponse.IndexOf('[');
+                    int endIndex = aiResponse.LastIndexOf(']');
+                    if (startIndex != -1 && endIndex != -1 && endIndex > startIndex)
                     {
-                        var aiDetail = parsedArray.EnumerateArray()
-                            .FirstOrDefault(x => x.GetProperty("RequirementText").GetString() == req.RequirementText);
+                        var cleanedJson = aiResponse.Substring(startIndex, endIndex - startIndex + 1);
+                        var parsedArray = JsonSerializer.Deserialize<JsonElement>(cleanedJson);
+                        int arrayLength = parsedArray.ValueKind == JsonValueKind.Array ? parsedArray.GetArrayLength() : 0;
 
-                        var detail = new EvaluationDetail
+                        for (int i = 0; i < requirements.Count; i++)
                         {
-                            Requirement = req.RequirementText,
-                            IsMandatory = req.IsMandatory, 
-                            Status = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Status").GetString() ?? "Not Met" : "Error",
-                            Evidence = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Evidence").GetString() ?? "" : "AI missed this requirement.",
-                            Score = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Score").GetInt32() : 0
-                        };
+                            var req = requirements[i];
+                            var aiDetail = i < arrayLength ? parsedArray[i] : default;
 
-                        evaluation.Details.Add(detail);
-                        evaluation.TotalScore += detail.Score;
+                            var detail = new EvaluationDetail
+                            {
+                                Requirement = req.RequirementText,
+                                IsMandatory = req.IsMandatory, 
+                                Status = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Status").GetString() ?? "Not Met" : "Error",
+                                Evidence = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Evidence").GetString() ?? "" : "AI missed this requirement.",
+                                Score = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Score").GetInt32() : 0
+                            };
+
+                            evaluation.Details.Add(detail);
+                            evaluation.TotalScore += detail.Score;
+                        }
+                    }
+                    else 
+                    {
+                        throw new Exception("Could not find valid JSON in AI response.");
                     }
                 }
                 catch (Exception ex)
@@ -120,11 +150,19 @@ namespace MediTender.API.Services
                     }
                 }
 
-                bool hasFailedMandatory = evaluation.Details.Any(d => d.IsMandatory && (d.Status == "Not Met" || d.Status == "Error"));
-                evaluation.FinalDecision = hasFailedMandatory ? "Rejected" : "Accepted";
+                bool hasFailedMandatory = evaluation.Details.Any(d => d.IsMandatory && (d.Status != "Met" && d.Status != "Partially Met"));
+                bool isTechnicallyAccepted = !hasFailedMandatory;
+                evaluation.FinalDecision = isTechnicallyAccepted ? "Accepted" : "Rejected";
 
                 _dbContext.OfferEvaluations.Add(evaluation);
                 allEvaluations.Add(evaluation);
+
+                await _financialService.EvaluateFinancialOfferAsync(
+                    tenderId: tenderId, 
+                    vendorName: vendor, 
+                    isTechnicallyAccepted: isTechnicallyAccepted, 
+                    technicalScore: evaluation.TotalScore
+                );
             }
 
             await _dbContext.SaveChangesAsync();
