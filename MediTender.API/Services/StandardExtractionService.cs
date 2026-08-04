@@ -45,6 +45,9 @@ namespace MediTender.API.Services
             var prompt = $@"
             You are a Biomedical Procurement Expert. Extract the technical specifications from the following text.
             For each requirement, determine if it is strictly mandatory (must-have) or optional/preferred.
+            
+            Set 'IsMandatory' to true ONLY IF the requirement explicitly contains words like 'Mandatory', 'Must', 'Shall', or 'Required'. If it contains words like 'Preferable', 'Optional', or has no strict enforcing word, you MUST set 'IsMandatory' to false.
+
             Return ONLY a valid JSON array of objects. Each object must have:
             - ""RequirementText"": string (the specification)
             - ""IsMandatory"": boolean (true if mandatory, false if optional)

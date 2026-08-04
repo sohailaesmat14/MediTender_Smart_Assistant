@@ -18,7 +18,21 @@ namespace MediTender.API.Services
                 }
             }
             
-            return text.ToString();
+            string extractedText = text.ToString();
+
+            extractedText = extractedText.Replace("✓", " Yes ")
+                                         .Replace("✔", " Yes ")
+                                         .Replace("☑", " Yes ")
+                                         .Replace("O", " Optional ") 
+                                         .Replace("?", " ");
+            
+            int maxSafeLength = 15000;
+            if (extractedText.Length > maxSafeLength)
+            {
+                extractedText = extractedText.Substring(0, maxSafeLength);
+            }
+
+            return extractedText;
         }
     }
 }

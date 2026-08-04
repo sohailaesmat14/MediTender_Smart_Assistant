@@ -11,7 +11,7 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f1f5f9; color: #333; }
         header { background-color: #0f172a; color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; }
         .logo span { color: #10b981; }
-        
+        #dashboardContent {background-color: #ffffff;}
         .container { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
         
         /* Executive Summary & Badges */
@@ -647,15 +647,22 @@
         }
 
         function exportToPDF() {
-            const element = document.querySelector('.matrix-container');
+            const element = document.querySelector('#dashboardContent');
+            
+            const originalOverflow = element.style.overflow;
+            element.style.overflow = 'visible';
+
             const opt = {
                 margin:       0.5,
                 filename:     'MediTender_Analysis_Report.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
+                image:        { type: 'jpeg', quality: 1 },
+                html2canvas:  { scale: 2, useCORS: true, windowWidth: element.scrollWidth }, 
                 jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' }
             };
-            html2pdf().set(opt).from(element).save();
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.style.overflow = originalOverflow;
+            });
         }
 
         // Call this inside generateBIDashboard() at the very end to fill the vendor dropdown
