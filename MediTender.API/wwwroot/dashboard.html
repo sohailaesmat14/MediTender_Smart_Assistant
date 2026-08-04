@@ -178,9 +178,16 @@
                     <div class="summary-text">${narrative}</div>
                 </div>
 
-                <div class="charts-container" style="width: 80%; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <h3 style="text-align: center; color: #334155;">Total Technical Score per Vendor</h3>
-                    <canvas id="totalScoreChart"></canvas>
+                <div class="charts-container" style="display: flex; flex-wrap: wrap; gap: 20px; margin: 20px auto; width: 95%;">
+                    <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h3 style="text-align: center; color: #334155;">Total Technical Score</h3>
+                        <canvas id="totalScoreChart"></canvas>
+                    </div>
+                    
+                    <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h3 style="text-align: center; color: #334155;">Requirements Status Distribution</h3>
+                        <canvas id="statusDistributionChart"></canvas>
+                    </div>
                 </div>
 
                 <div class="insights-grid">
@@ -315,7 +322,89 @@
                 });
             }
 
-            // Call the function immediately after injecting the HTML
+            // Function to render the Stacked Bar Chart for Status Distribution
+            function renderStatusDistributionChart() {
+                const ctx = document.getElementById('statusDistributionChart').getContext('2d');
+                
+                const vendorNames = globalEvaluations.map(ev => ev.vendorName);
+                
+                let metCounts = [];
+                let partialCounts = [];
+                let notMentionedCounts = [];
+                let notMetCounts = []; 
+                
+                globalEvaluations.forEach(ev => {
+                    let met = 0, partial = 0, notMentioned = 0, notMet = 0;
+                    
+                    ev.details.forEach(d => {
+                        if (d.status === 'Met') met++;
+                        else if (d.status === 'Partially Met') partial++;
+                        else if (d.status === 'Not Mentioned') notMentioned++;
+                        else notMet++; 
+                    });
+                    
+                    metCounts.push(met);
+                    partialCounts.push(partial);
+                    notMentionedCounts.push(notMentioned);
+                    notMetCounts.push(notMet);
+                });
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: vendorNames,
+                        datasets: [
+                            {
+                                label: 'Met',
+                                data: metCounts,
+                                backgroundColor: '#10b981' 
+                            },
+                            {
+                                label: 'Partially Met',
+                                data: partialCounts,
+                                backgroundColor: '#f59e0b'
+                            },
+                            {
+                                label: 'Not Mentioned ',
+                                data: notMentionedCounts,
+                                backgroundColor: '#94a3b8' 
+                            },
+                            {
+                                label: 'Not Met / Error ',
+                                data: notMetCounts,
+                                backgroundColor: '#ef4444' 
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                stacked: true, 
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Requirements'
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            },
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+
+            renderStatusDistributionChart();
             renderTotalScoreChart();
         }
     </script>
