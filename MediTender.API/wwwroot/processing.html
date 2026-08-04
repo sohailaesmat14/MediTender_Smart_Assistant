@@ -113,6 +113,11 @@
                 document.querySelector('.spinner').style.display = 'none';
             }
         });
+        history.pushState(null, null, location.href);
+        window.onpopstate = function () {
+            history.go(1); 
+            alert("please wait till processing page ends");
+        };
     </script>
 </body>
 </html>

@@ -146,7 +146,16 @@
             ).join('');
         }
 
-        let dailyQuota = localStorage.getItem('meditender_quota') ? parseInt(localStorage.getItem('meditender_quota')) : 100;
+        let today = new Date().toDateString();
+        let storedDate = localStorage.getItem('meditender_quota_date');
+        let dailyQuota = 200;
+
+        if (storedDate === today) {
+            dailyQuota = localStorage.getItem('meditender_quota') ? parseInt(localStorage.getItem('meditender_quota')) : 200;
+        } else {
+            localStorage.setItem('meditender_quota_date', today);
+            localStorage.setItem('meditender_quota', 200);
+        }
         async function processUploads() {
             const standardFile = document.getElementById('standardFile').files[0];
             const statusMsg = document.getElementById('statusMessage');
@@ -177,7 +186,6 @@
 
             dailyQuota -= expectedCost;
             localStorage.setItem('meditender_quota', dailyQuota);
-            // =======================================================
 
             startBtn.disabled = true;
             statusMsg.style.display = "none";
