@@ -44,15 +44,13 @@
         .price-tag { font-size: 18px; font-weight: bold; color: #047857; }
         .outlier-tag { background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px; }
         .status-missing { color: #6b7280; font-weight: bold; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 12px;}
+        tr, .charts-container, .summary-card, .insights-grid {page-break-inside: avoid !important;}
     </style>
 </head>
 <body>
     <header>
         <div class="logo">MediProcure <span>BI Analytics</span> 📊</div>
     </header>
-    <button onclick="window.location.href='upload.html'" style="background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
-        🔄 Start New Evaluation
-    </button>
     <div class="container" id="dashboardContent">
         <!-- Data will be injected here by JS -->
     </div>
@@ -60,13 +58,25 @@
     <script>
         let globalEvaluations = []; 
 
-        window.addEventListener('beforeunload', function (e) {
-            // This message might not be shown in modern browsers, 
-            // but returning a string triggers the browser's default warning dialog.
-            const confirmationMessage = 'Are you sure you want to leave? Your progress will be lost.';
-            e.returnValue = confirmationMessage; 
-            return confirmationMessage;
-        });
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeForJS(str) {
+            if (!str) return '';
+            return str.toString()
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '&quot;')
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r');
+        }
 
         document.addEventListener("DOMContentLoaded", () => {
             const rawData = sessionStorage.getItem('meditender_evaluations');
@@ -167,8 +177,7 @@
             let narrative = `Based on the AI evaluation of ${globalEvaluations.length} vendors, `;
             if (fullyAccepted.length > 0) {
                 narrative += `<strong>${fullyAccepted.length} vendors</strong> are currently recommended for acceptance. `;
-                narrative += `The most optimal "Value for Money" is offered by <strong>${bestValueVendor.vendorName}</strong> at <strong>${bestValueVendor.totalPrice.toLocaleString()} EGP</strong>. `;
-            } else {
+                narrative += `The most optimal "Value for Money" is offered by <strong>${escapeHTML(bestValueVendor.vendorName)}</strong> at <strong>${bestValueVendor.totalPrice.toLocaleString()} EGP</strong>. `;            } else {
                 narrative += `<strong>NO vendors</strong> are fully accepted yet. Some are pending manual review for missing administrative documents. `;
             }
             if (gapCount > 0) {
@@ -180,32 +189,6 @@
                 <div class="summary-card">
                     <h2>🤖 AI Executive Summary</h2>
                     <div class="summary-text">${narrative}</div>
-                </div>
-
-                <div class="charts-container" style="display: flex; flex-wrap: wrap; gap: 20px; margin: 20px auto; width: 95%;">
-                    <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <h3 style="text-align: center; color: #334155;">Total Technical Score</h3>
-                        <canvas id="totalScoreChart"></canvas>
-                    </div>
-                    
-                    <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <h3 style="text-align: center; color: #334155;">Requirements Status Distribution</h3>
-                        <canvas id="statusDistributionChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="heatmap-section" style="margin: 20px auto; width: 95%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <h3 style="text-align: center; color: #334155;">🔥 Market Gap Heatmap (Requirement Failure Analysis)</h3>
-                    <p style="text-align: center; font-size: 12px; color: #64748b;">Requirements ordered by failure rate (highest first)</p>
-                    <div id="heatmapContainer" style="overflow-x: auto; margin-top: 15px;"></div>
-                </div>
-
-                <div class="charts-container" style="margin: 20px auto; width: 95%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <h3 style="text-align: center; color: #334155;">💎 Value for Money (Price vs. Technical Score)</h3>
-                    <p style="text-align: center; font-size: 12px; color: #64748b;">The best vendor will appear in the Top-Left corner (Highest Score & Lowest Price)</p>
-                    <div style="height: 400px; margin-top: 20px;">
-                        <canvas id="valueForMoneyChart"></canvas>
-                    </div>
                 </div>
 
                 <div class="insights-grid">
@@ -230,7 +213,25 @@
                         <div class="insight-desc">Percentage of mandatory items with explicit text evidence.</div>
                     </div>
                 </div>
+                <div class="charts-container" style="display: flex; flex-wrap: wrap; gap: 20px; margin: 20px auto; width: 95%;">
+                    <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h3 style="text-align: center; color: #334155;">Total Technical Score</h3>
+                        <canvas id="totalScoreChart"></canvas>
+                    </div>
+                    
+                    <div style="flex: 1; min-width: 400px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h3 style="text-align: center; color: #334155;">Requirements Status Distribution</h3>
+                        <canvas id="statusDistributionChart"></canvas>
+                    </div>
+                </div>
 
+                <div class="charts-container" style="margin: 20px auto; width: 95%; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h3 style="text-align: center; color: #334155;">💎 Value for Money (Price vs. Technical Score)</h3>
+                    <p style="text-align: center; font-size: 12px; color: #64748b;">The best vendor will appear in the Top-Left corner (Highest Score & Lowest Price)</p>
+                    <div style="height: 400px; margin-top: 20px;">
+                        <canvas id="valueForMoneyChart"></canvas>
+                    </div>
+                </div>
                 <div class="matrix-container">
                     <div class="dashboard-controls" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                         
@@ -267,16 +268,15 @@
                                     let isOutlier = (ev.totalPrice > 0 && ev.totalPrice < outlierThreshold) ? '<span class="outlier-tag">Abnormally Low</span>' : '';
                                     
                                     let actionBtn = ev.finalDecision === 'Pending Manual Review' ? 
-                                        `<button onclick="overrideDecision('${ev.vendorName}')" style="margin-top:8px; background:#2563eb; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; width:100%; font-weight:bold;">✅ Manual Override</button>` : '';
+                                    `<button onclick="overrideDecision('${escapeForJS(ev.vendorName)}')" style="margin-top:8px; background:#2563eb; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; width:100%; font-weight:bold;">✅ Manual Override</button>` : '';
 
-                                    let statusColor = ev.finalDecision === 'Recommended for Acceptance' ? '#059669' : (ev.finalDecision.includes('Review') ? '#d97706' : '#dc2626');
-
-                                    return `<th>
-                                        <div style="font-size: 16px;">${ev.vendorName}</div>
-                                        <div style="font-size:12px; font-weight:bold; color: ${statusColor}; margin: 5px 0;">${ev.finalDecision}</div>
-                                        <div class="price-tag">${ev.totalPrice > 0 ? ev.totalPrice.toLocaleString() + ' EGP' : 'N/A'}</div>
-                                        ${isOutlier}
-                                    </th>`;
+                                return `<th>
+                                    <div style="font-size: 16px;">${escapeHTML(ev.vendorName)}</div>
+                                    <div style="font-size:12px; font-weight:bold; color: ${statusColor}; margin: 5px 0;">${ev.finalDecision}</div>
+                                    <div class="price-tag">${ev.totalPrice > 0 ? ev.totalPrice.toLocaleString() + ' EGP' : 'N/A'}</div>
+                                    ${isOutlier}
+                                    ${actionBtn}
+                                </th>`;
                                 }).join('')}
                             </tr>
                         </thead>
@@ -285,32 +285,26 @@
                                 return `
                                 <tr>
                                     <td class="req-col">
-                                        ${req.text} 
+                                        ${escapeHTML(req.text)} 
                                         ${req.isMandatory ? '<span style="color:red; font-size:12px;">(Mandatory)</span>' : ''}
                                     </td>
                                     ${globalEvaluations.map(ev => {
-                                        const res = req.vendorResults[ev.vendorName];
-                                        let badgeClass = res.status === 'Met' ? 'status-met' : 
-                                                         (res.status === 'Partially Met' ? 'status-partial' : 
-                                                         (res.status === 'Not Mentioned' ? 'status-missing' : 'status-notmet'));
+                                        // ... (باقي الكود بتاع الـ badgeClass و الـ reviewFlag)
                                         
-                                        let reviewFlag = (req.isMandatory && (res.status === 'Partially Met' || res.status === 'Not Mentioned')) ? '⚠️ Review' : '';
-                                        let maxScore = req.isMandatory ? 20 : 10;
-
                                         return `<td style="position: relative;">
                                             <span class="${badgeClass}">${res.status}</span> 
                                             <span style="font-size:11px; color:#d97706; font-weight:bold;">${reviewFlag}</span>
                                             <br><small style="color:#64748b;">Score: ${res.score}/${maxScore}</small>
                                             
                                             ${(req.isMandatory && (res.status === 'Partially Met' || res.status === 'Not Mentioned')) ? 
-                                                `<button onclick="overrideItem('${ev.vendorName}', '${req.text.replace(/'/g, "\\'")}')" 
+                                                `<button onclick="overrideItem('${escapeForJS(ev.vendorName)}', '${escapeForJS(req.text)}')" 
                                                 style="margin-top: 5px; display: block; background: #3b82f6; color: white; border: none; border-radius: 3px; font-size: 10px; padding: 3px 6px; cursor: pointer;">
                                                 ✓ Approve Item
                                                 </button>` 
                                             : ''}
                                         </td>`;
                                     }).join('')}
-                                </tr>`;
+                                </tr>
                             }).join('')}
                         </tbody>
                     </table>
@@ -447,67 +441,6 @@
                     }
                 });
             }
-            // Function to render the Market Gap Heatmap
-            function renderHeatmap() {
-                const container = document.getElementById('heatmapContainer');
-                const reqMap = {};
-                let vendors = globalEvaluations.map(v => v.vendorName);
-
-                globalEvaluations[0].details.forEach(d => {
-                    reqMap[d.requirement] = { text: d.requirement, isMandatory: d.isMandatory, fails: 0, results: {} };
-                });
-
-                globalEvaluations.forEach(ev => {
-                    ev.details.forEach(d => {
-                        reqMap[d.requirement].results[ev.vendorName] = d.status;
-                        if(d.status !== 'Met' && d.status !== 'Partially Met') {
-                            reqMap[d.requirement].fails++;
-                        }
-                    });
-                });
-
-                let sortedReqs = Object.values(reqMap).sort((a, b) => b.fails - a.fails);
-
-                let tableHTML = `<table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
-                    <thead>
-                        <tr>
-                            <th style="padding: 10px; border-bottom: 2px solid #cbd5e1; width: 40%;">Requirement / Standard</th>
-                            <th style="padding: 10px; border-bottom: 2px solid #cbd5e1; text-align: center;">Fail Rate %</th>
-                            ${vendors.map(v => `<th style="padding: 10px; border-bottom: 2px solid #cbd5e1; text-align: center;">${v}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-                sortedReqs.forEach(req => {
-                    let failPercent = Math.round((req.fails / vendors.length) * 100);
-                    let failColor = failPercent === 100 ? '#ef4444' : (failPercent > 0 ? '#f59e0b' : '#10b981');
-                    let failIcon = failPercent === 100 ? '⚠️' : '';
-
-                    tableHTML += `<tr>
-                        <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-weight: ${failPercent === 100 ? 'bold' : 'normal'};">
-                            ${failIcon} ${req.text} ${req.isMandatory ? '<span style="color:red; font-size:16px;">*</span>' : ''}
-                        </td>
-                        <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${failColor};">
-                            ${failPercent}%
-                        </td>`;
-                    
-                    vendors.forEach(v => {
-                        let status = req.results[v];
-                        
-                        let bgColor = status === 'Met' ? '#d1fae5' : (status === 'Partially Met' ? '#fef3c7' : (status === 'Not Mentioned' ? '#f1f5f9' : '#fee2e2'));
-                        let textColor = status === 'Met' ? '#065f46' : (status === 'Partially Met' ? '#92400e' : (status === 'Not Mentioned' ? '#475569' : '#991b1b'));
-                        let icon = status === 'Met' ? '✔️' : (status === 'Partially Met' ? '🟡' : '❌');
-
-                        tableHTML += `<td style="padding: 8px; border-bottom: 1px solid #white; background: ${bgColor}; color: ${textColor}; text-align: center; border-left: 2px solid #fff;">
-                            <span title="${status}">${icon}</span>
-                        </td>`;
-                    });
-                    tableHTML += `</tr>`;
-                });
-
-                tableHTML += `</tbody></table>`;
-                container.innerHTML = tableHTML;
-            }
 
             function renderScatterChart() {
                 const ctx = document.getElementById('valueForMoneyChart').getContext('2d');
@@ -582,7 +515,6 @@
             }
 
             renderScatterChart();
-            renderHeatmap();
             renderStatusDistributionChart();
             renderTotalScoreChart();
         }
@@ -644,6 +576,7 @@
 
         function exportToExcel() {
             const table = document.querySelector('.matrix-container table');
+            
             TableToExcel.convert(table, {
                 name: "MediTender_Analysis_Report.xlsx",
                 sheet: {
@@ -664,7 +597,8 @@
                 filename:     'MediTender_Analysis_Report.pdf',
                 image:        { type: 'jpeg', quality: 1 },
                 html2canvas:  { scale: 2, useCORS: true, scrollY: 0 }, 
-                jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' }
+                jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' },
+                pagebreak:    { mode: ['css', 'avoid-all'] } 
             };
 
             html2pdf().set(opt).from(element).save().then(() => {

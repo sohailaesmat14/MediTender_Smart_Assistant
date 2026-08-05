@@ -23,7 +23,6 @@ namespace MediTender.API.Services
             extractedText = extractedText.Replace("✓", " Yes ")
                                          .Replace("✔", " Yes ")
                                          .Replace("☑", " Yes ")
-                                         .Replace("O", " Optional ") 
                                          .Replace("?", " ");
             
             int maxSafeLength = 15000;

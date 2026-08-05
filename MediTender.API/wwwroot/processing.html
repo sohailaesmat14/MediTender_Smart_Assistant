@@ -105,19 +105,14 @@
                 
                 statusText.innerText = "Analysis Complete! Redirecting to Decision Matrix...";
                 window.onbeforeunload = null;
-                window.location.replace('dashboard.html');
-
+                window.onpopstate = null; 
+                window.location.replace('dashboard.html'); 
             } catch (err) {
                 statusText.innerText = "System Error: " + err.message;
                 statusText.style.color = "red";
                 document.querySelector('.spinner').style.display = 'none';
             }
         });
-        history.pushState(null, null, location.href);
-        window.onpopstate = function () {
-            history.go(1); 
-            alert("please wait till processing page ends");
-        };
     </script>
 </body>
 </html>

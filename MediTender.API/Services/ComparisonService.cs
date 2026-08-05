@@ -81,7 +81,7 @@ namespace MediTender.API.Services
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
 
-                        var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 15);
+                        var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 8);
 
                         foreach (var result in searchResults)
                         {
@@ -193,7 +193,7 @@ namespace MediTender.API.Services
                 allEvaluations.Add(evaluation);
 
                 Console.WriteLine($"[Rate Limit Protection] Waiting 15 seconds before evaluating the next vendor...");
-                await Task.Delay(15000); 
+                await Task.Delay(35000); 
             }
 
             await _dbContext.SaveChangesAsync();
