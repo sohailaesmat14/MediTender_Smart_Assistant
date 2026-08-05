@@ -285,12 +285,18 @@
                                 return `
                                 <tr>
                                     <td class="req-col">
-                                        ${escapeHTML(req.text)} 
+                                        ${req.text} 
                                         ${req.isMandatory ? '<span style="color:red; font-size:12px;">(Mandatory)</span>' : ''}
                                     </td>
                                     ${globalEvaluations.map(ev => {
-                                        // ... (باقي الكود بتاع الـ badgeClass و الـ reviewFlag)
+                                        const res = req.vendorResults[ev.vendorName];
+                                        let badgeClass = res.status === 'Met' ? 'status-met' : 
+                                                         (res.status === 'Partially Met' ? 'status-partial' : 
+                                                         (res.status === 'Not Mentioned' ? 'status-missing' : 'status-notmet'));
                                         
+                                        let reviewFlag = (req.isMandatory && (res.status === 'Partially Met' || res.status === 'Not Mentioned')) ? '⚠️ Review' : '';
+                                        let maxScore = req.isMandatory ? 20 : 10;
+
                                         return `<td style="position: relative;">
                                             <span class="${badgeClass}">${res.status}</span> 
                                             <span style="font-size:11px; color:#d97706; font-weight:bold;">${reviewFlag}</span>
@@ -304,7 +310,7 @@
                                             : ''}
                                         </td>`;
                                     }).join('')}
-                                </tr>
+                                </tr>`;
                             }).join('')}
                         </tbody>
                     </table>
