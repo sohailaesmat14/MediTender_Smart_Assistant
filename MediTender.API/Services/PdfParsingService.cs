@@ -24,12 +24,6 @@ namespace MediTender.API.Services
                                          .Replace("✔", " Yes ")
                                          .Replace("☑", " Yes ")
                                          .Replace("?", " ");
-            
-            int maxSafeLength = 15000;
-            if (extractedText.Length > maxSafeLength)
-            {
-                extractedText = extractedText.Substring(0, maxSafeLength);
-            }
 
             return extractedText;
         }

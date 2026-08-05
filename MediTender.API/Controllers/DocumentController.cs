@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MediTender.API.Services;
 using MediTender.API.Data;
 using MediTender.API.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace MediTender.API.Controllers
 {
@@ -179,6 +180,11 @@ namespace MediTender.API.Controllers
                 await qdrantClient.CreateCollectionAsync("meditender_collection_v2", 
                     new Qdrant.Client.Grpc.VectorParams { Size = 3072, Distance = Qdrant.Client.Grpc.Distance.Cosine });
 
+                await qdrantClient.CreatePayloadIndexAsync("meditender_collection_v2", "fileName", Qdrant.Client.Grpc.PayloadSchemaType.Keyword);
+                await qdrantClient.CreatePayloadIndexAsync("meditender_collection_v2", "documentType", Qdrant.Client.Grpc.PayloadSchemaType.Keyword);
+                await qdrantClient.CreatePayloadIndexAsync("meditender_collection_v2", "vendorName", Qdrant.Client.Grpc.PayloadSchemaType.Keyword);
+                await qdrantClient.CreatePayloadIndexAsync("meditender_collection_v2", "tenderId", Qdrant.Client.Grpc.PayloadSchemaType.Keyword);
+
                 return Ok(new { Message = "System has been completely reset and is ready for a new demo!" });
             }
             catch (Exception ex)
@@ -222,6 +228,106 @@ namespace MediTender.API.Controllers
         public class QuotaRequest
         {
             public int VendorCount { get; set; }
+        }
+        [HttpPost("override-evaluation")]
+        public async Task<IActionResult> OverrideEvaluation([FromBody] OverrideRequest request)
+        {
+            try
+            {
+                var evaluation = await _dbContext.OfferEvaluations
+                    .Include(e => e.Details)
+                    .FirstOrDefaultAsync(e => e.TenderId == request.TenderId && e.VendorName == request.VendorName);
+
+                if (evaluation == null) 
+                    return NotFound("Evaluation not found in database.");
+
+                var detail = evaluation.Details.FirstOrDefault(d => d.Requirement == request.Requirement);
+                if (detail == null) 
+                    return NotFound("Requirement not found in this evaluation.");
+
+                detail.Status = "Met";
+                detail.Evidence = "✅ Manually verified by committee.";
+                detail.Score = detail.IsMandatory ? 20 : 10;
+
+                evaluation.TotalScore = evaluation.Details.Sum(d => d.Score);
+
+                bool hasFailedMandatory = evaluation.Details.Any(d => d.IsMandatory && (d.Status == "Not Met" || d.Status == "Error"));
+                bool hasPartialOrMissingMandatory = evaluation.Details.Any(d => d.IsMandatory && (d.Status == "Partially Met" || d.Status == "Not Mentioned"));
+
+                if (hasFailedMandatory)
+                    evaluation.FinalDecision = "Recommended for Rejection";
+                else if (hasPartialOrMissingMandatory)
+                    evaluation.FinalDecision = "Pending Manual Review";
+                else
+                    evaluation.FinalDecision = "Recommended for Acceptance";
+
+                var vendorOffer = await _dbContext.VendorOffers.FirstOrDefaultAsync(v => v.TenderId == request.TenderId && v.CompanyName == request.VendorName);
+                if (vendorOffer != null)
+                {
+                    vendorOffer.IsAccepted = evaluation.FinalDecision == "Recommended for Acceptance" || evaluation.FinalDecision == "Pending Manual Review";
+                    vendorOffer.EvaluationScore = evaluation.TotalScore;
+                }
+
+                await _dbContext.SaveChangesAsync();
+
+                return Ok(new { Message = "Override saved to database successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        public class OverrideRequest
+        {
+            public int TenderId { get; set; }
+            public string VendorName { get; set; } = string.Empty;
+            public string Requirement { get; set; } = string.Empty;
+        }
+        [HttpPost("override-vendor-decision")]
+        public async Task<IActionResult> OverrideVendorDecision([FromBody] VendorOverrideRequest request)
+        {
+            try
+            {
+                var evaluation = await _dbContext.OfferEvaluations
+                    .Include(e => e.Details)
+                    .FirstOrDefaultAsync(e => e.TenderId == request.TenderId && e.VendorName == request.VendorName);
+
+                if (evaluation == null) 
+                    return NotFound("Evaluation not found in database.");
+
+                // Loop through all pending mandatory items and approve them
+                foreach (var detail in evaluation.Details.Where(d => d.IsMandatory && (d.Status == "Partially Met" || d.Status == "Not Mentioned")))
+                {
+                    detail.Status = "Met";
+                    detail.Evidence = "✅ Vendor manually approved by committee.";
+                    detail.Score = 20;
+                }
+
+                // Recalculate totals
+                evaluation.TotalScore = evaluation.Details.Sum(d => d.Score);
+                evaluation.FinalDecision = "Recommended for Acceptance";
+
+                var vendorOffer = await _dbContext.VendorOffers.FirstOrDefaultAsync(v => v.TenderId == request.TenderId && v.CompanyName == request.VendorName);
+                if (vendorOffer != null)
+                {
+                    vendorOffer.IsAccepted = true;
+                    vendorOffer.EvaluationScore = evaluation.TotalScore;
+                }
+
+                await _dbContext.SaveChangesAsync();
+                return Ok(new { Message = "Vendor completely approved and saved to database." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        public class VendorOverrideRequest
+        {
+            public int TenderId { get; set; }
+            public string VendorName { get; set; } = string.Empty;
         }
     }
 }

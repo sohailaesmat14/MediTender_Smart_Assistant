@@ -24,17 +24,6 @@ namespace MediTender.API.Services
 
         public async Task SaveChunksToQdrantAsync(string fileName, string documentType, string vendorName, List<string> chunks, int tenderId)
         {
-            try
-            {
-                await _qdrantClient.CreatePayloadIndexAsync(_collectionName, "fileName", PayloadSchemaType.Keyword);
-                await _qdrantClient.CreatePayloadIndexAsync(_collectionName, "documentType", PayloadSchemaType.Keyword);
-                await _qdrantClient.CreatePayloadIndexAsync(_collectionName, "vendorName", PayloadSchemaType.Keyword);
-                await _qdrantClient.CreatePayloadIndexAsync(_collectionName, "tenderId", PayloadSchemaType.Keyword); 
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Payload indexes might already exist.");
-            }
 
             var allEmbeddings = new List<float[]>();
             int batchSize = 100;

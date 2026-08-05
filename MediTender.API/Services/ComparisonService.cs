@@ -121,10 +121,58 @@ namespace MediTender.API.Services
                         for (int i = 0; i < requirements.Count; i++)
                         {
                             var req = requirements[i];
-                            var aiDetail = i < arrayLength ? parsedArray[i] : default;
+                            JsonElement aiDetail = default;
+                            bool matchFound = false;
 
-                            int baseScore = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Score").GetInt32() : 0;
-        
+                            // 1. ندور على الـ Requirement بالاسم بدل الـ Index
+                            if (parsedArray.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var item in parsedArray.EnumerateArray())
+                                {
+                                    if (item.TryGetProperty("RequirementText", out var reqTextProp))
+                                    {
+                                        string aiReqText = reqTextProp.GetString() ?? "";
+                                        
+                                        // بنقارن النصين ببعض وبنتجاهل المسافات وحالة الحروف
+                                        if (string.Equals(aiReqText.Trim(), req.RequirementText.Trim(), StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            aiDetail = item;
+                                            matchFound = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. قيم افتراضية لو الـ AI مسقط الـ Requirement خالص
+                            int baseScore = 0;
+                            string status = "Not Mentioned";
+                            string evidence = "AI missed this requirement in the evaluation.";
+
+                            // 3. نستخدم TryGetProperty عشان نستخرج الداتا بأمان
+                            if (matchFound)
+                            {
+                                if (aiDetail.TryGetProperty("Score", out var scoreProp) && scoreProp.ValueKind == JsonValueKind.Number)
+                                {
+                                    baseScore = scoreProp.GetInt32();
+                                }
+
+                                if (aiDetail.TryGetProperty("Status", out var statusProp))
+                                {
+                                    status = statusProp.GetString() ?? "Not Met";
+                                }
+                                else
+                                {
+                                    status = "Not Met"; 
+                                }
+
+                                if (aiDetail.TryGetProperty("Evidence", out var evidenceProp))
+                                {
+                                    evidence = evidenceProp.GetString() ?? "No evidence found.";
+                                }
+                            }
+
+                            // حساب الـ Score
                             int weight = req.IsMandatory ? 2 : 1; 
                             int weightedScore = baseScore * weight;
 
@@ -132,8 +180,8 @@ namespace MediTender.API.Services
                             {
                                 Requirement = req.RequirementText,
                                 IsMandatory = req.IsMandatory, 
-                                Status = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Status").GetString() ?? "Not Met" : "Error",
-                                Evidence = aiDetail.ValueKind != JsonValueKind.Undefined ? aiDetail.GetProperty("Evidence").GetString() ?? "" : "No evidence found.",
+                                Status = status,
+                                Evidence = evidence,
                                 Score = weightedScore 
                             };
 
@@ -192,11 +240,13 @@ namespace MediTender.API.Services
                 _dbContext.OfferEvaluations.Add(evaluation);
                 allEvaluations.Add(evaluation);
 
-                Console.WriteLine($"[Rate Limit Protection] Waiting 15 seconds before evaluating the next vendor...");
-                await Task.Delay(35000); 
+                await _dbContext.SaveChangesAsync();
+
+                Console.WriteLine($"[Pacing] Evaluated vendor {vendor}. Moving to next...");
+                await Task.Delay(2000);
             }
 
-            await _dbContext.SaveChangesAsync();
+            
             return allEvaluations;
         }
     }

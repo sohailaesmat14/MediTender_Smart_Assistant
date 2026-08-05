@@ -88,34 +88,103 @@
             generateBIDashboard();
         });
 
-        window.overrideItem = function(vendorName, reqText) {
+        window.overrideItem = async function(vendorName, reqText) {
+            if (!confirm("Are you sure you want to manually approve this requirement? This action will be permanently saved to the database.")) {
+                return;
+            }
+
             let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
             if (!vendor) return;
 
-            let detail = vendor.details.find(d => d.requirement === reqText);
-            if (detail) {
-                detail.status = "Met";
-                detail.evidence = "✅ Manually verified by committee.";
-                detail.score = detail.isMandatory ? 20 : 10;
-                
-                vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
-                
-                let hasFailedMandatory = vendor.details.some(d => d.isMandatory && (d.status === "Not Met" || d.status === "Error"));
-                let hasPartialOrMissing = vendor.details.some(d => d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned"));
-                
-                if (hasFailedMandatory) {
-                    vendor.finalDecision = "Recommended for Rejection";
-                } else if (hasPartialOrMissing) {
-                    vendor.finalDecision = "Pending Manual Review";
-                } else {
-                    vendor.finalDecision = "Recommended for Acceptance";
+            try {
+                const response = await fetch('http://localhost:5172/api/Document/override-evaluation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tenderId: vendor.tenderId,
+                        vendorName: vendorName,
+                        requirement: reqText
+                    })
+                });
+
+                if (!response.ok) {
+                    let errorMsg = await response.text();
+                    throw new Error(errorMsg);
                 }
-                
-                sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
-                generateBIDashboard();
+
+                let detail = vendor.details.find(d => d.requirement === reqText);
+                if (detail) {
+                    detail.status = "Met";
+                    detail.evidence = "✅ Manually verified by committee.";
+                    detail.score = detail.isMandatory ? 20 : 10;
+                    
+                    vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
+                    
+                    let hasFailedMandatory = vendor.details.some(d => d.isMandatory && (d.status === "Not Met" || d.status === "Error"));
+                    let hasPartialOrMissing = vendor.details.some(d => d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned"));
+                    
+                    if (hasFailedMandatory) {
+                        vendor.finalDecision = "Recommended for Rejection";
+                    } else if (hasPartialOrMissing) {
+                        vendor.finalDecision = "Pending Manual Review";
+                    } else {
+                        vendor.finalDecision = "Recommended for Acceptance";
+                    }
+                    
+                    sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
+                    generateBIDashboard();
+                    
+                    alert("Requirement successfully overridden and saved to the database!");
+                }
+            } catch (err) {
+                alert("Failed to save override to database: " + err.message);
             }
         };
 
+        window.overrideDecision = async function(vendorName) {
+            if (!confirm(`Are you sure you want to completely approve ALL pending requirements for ${vendorName}?`)) {
+                return;
+            }
+
+            let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
+            if (!vendor) return;
+
+            try {
+                // Send bulk approval to backend
+                const response = await fetch('http://localhost:5172/api/Document/override-vendor-decision', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        tenderId: vendor.tenderId, 
+                        vendorName: vendorName 
+                    })
+                });
+
+                if (!response.ok) {
+                    let errorMsg = await response.text();
+                    throw new Error(errorMsg);
+                }
+
+                // Update local state if backend succeeds
+                vendor.details.forEach(d => {
+                    if (d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned")) {
+                        d.status = "Met";
+                        d.evidence = "✅ Vendor manually approved by committee.";
+                        d.score = 20;
+                    }
+                });
+
+                vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
+                vendor.finalDecision = "Recommended for Acceptance";
+                
+                sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
+                generateBIDashboard();
+                
+                alert(`Vendor ${vendorName} has been successfully approved!`);
+            } catch (err) {
+                alert("Failed to approve vendor: " + err.message);
+            }
+        };
         function generateBIDashboard() {
             const content = document.getElementById('dashboardContent');
             

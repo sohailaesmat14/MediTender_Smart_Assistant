@@ -44,6 +44,7 @@ namespace MediTender.API.Services
                 var searchVector = await _geminiService.GetEmbeddingAsync("total price, total cost, grand total, currency, warranty period, payment terms");
 
                 var filter = new Filter();
+                filter.Must.Add(new Condition { Field = new FieldCondition { Key = "tenderId", Match = new Match { Keyword = tenderId.ToString() } } });
                 filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "FinancialOffer" } } });
                 filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendorName } } });
 
