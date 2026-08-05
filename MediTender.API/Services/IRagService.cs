@@ -1,7 +1,7 @@
 namespace MediTender.API.Services
 {
-    public interface IRagService
+        public interface IRagService
     {
-        Task<string> AnalyzeOfferAsync(string question);
+        Task<string> AnalyzeOfferAsync(string question, int tenderId, string vendorName);
     }
 }

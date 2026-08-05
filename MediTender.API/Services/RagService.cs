@@ -1,5 +1,6 @@
 using System.Text;
 using Qdrant.Client;
+using Qdrant.Client.Grpc;
 using MediTender.API.Data;
 using MediTender.API.Models;
 
@@ -19,13 +20,22 @@ namespace MediTender.API.Services
             _geminiService = geminiService;
         }
 
-        public async Task<string> AnalyzeOfferAsync(string question)
+        public async Task<string> AnalyzeOfferAsync(string question, int tenderId, string vendorName)
         {
             var questionEmbedding = await _geminiService.GetEmbeddingAsync(question);
+
+            var filter = new Filter();
+            filter.Must.Add(new Condition { Field = new FieldCondition { Key = "tenderId", Match = new Match { Keyword = tenderId.ToString() } } });
+            
+            if (!string.IsNullOrWhiteSpace(vendorName))
+            {
+                filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendorName } } });
+            }
 
             var searchResults = await _qdrantClient.SearchAsync(
                 collectionName: _collectionName,
                 vector: questionEmbedding,
+                filter: filter,
                 limit: 5
             );
 

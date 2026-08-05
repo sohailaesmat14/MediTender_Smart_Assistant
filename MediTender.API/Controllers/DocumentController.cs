@@ -68,13 +68,20 @@ namespace MediTender.API.Controllers
 
             try
             {
-                var answer = await ragService.AnalyzeOfferAsync(request.Question);
+                var answer = await ragService.AnalyzeOfferAsync(request.Question, request.TenderId, request.VendorName);
                 return Ok(new { Answer = answer });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, ex.Message);
             }
+        }
+
+        public class QuestionRequest 
+        { 
+            public string Question { get; set; } = string.Empty; 
+            public int TenderId { get; set; }
+            public string VendorName { get; set; } = string.Empty;
         }
 
         [HttpGet("history")]
@@ -86,11 +93,6 @@ namespace MediTender.API.Controllers
                 .ToListAsync();
             
             return Ok(history);
-        }
-
-        public class QuestionRequest 
-        { 
-        public string Question { get; set; } = string.Empty; 
         }
 
 
