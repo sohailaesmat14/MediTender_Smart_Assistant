@@ -191,5 +191,35 @@ namespace MediTender.API.Controllers
             public string VendorName { get; set; } = string.Empty;
             public int TenderId { get; set; } = 1;
         }
+        private static int _dailyQuota = 200;
+        private static DateTime _lastResetDate = DateTime.UtcNow.Date;
+
+        [HttpPost("consume-quota")]
+        public IActionResult ConsumeQuota([FromBody] QuotaRequest request)
+        {
+            if (DateTime.UtcNow.Date > _lastResetDate)
+            {
+                _dailyQuota = 200;
+                _lastResetDate = DateTime.UtcNow.Date;
+            }
+
+            int expectedCost = request.VendorCount * 15;
+
+            if (_dailyQuota >= expectedCost)
+            {
+                _dailyQuota -= expectedCost;
+                return Ok(new { Success = true, RemainingQuota = _dailyQuota });
+            }
+
+            return BadRequest(new { 
+                Success = false, 
+                Message = $"❌ Your current balance ({_dailyQuota} points) isn't enough. You need ({expectedCost} points)." 
+            });
+        }
+
+        public class QuotaRequest
+        {
+            public int VendorCount { get; set; }
+        }
     }
 }

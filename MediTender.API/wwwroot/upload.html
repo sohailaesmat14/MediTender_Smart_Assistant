@@ -185,86 +185,108 @@
             }
 
             dailyQuota -= expectedCost;
-            localStorage.setItem('meditender_quota', dailyQuota);
-
-            startBtn.disabled = true;
-            statusMsg.style.display = "none";
-            progressContainer.style.display = "block";
-            progressBar.style.width = "0%";
-            progressBar.style.backgroundColor = "#2563eb";
-            progressText.style.color = "#2563eb";
-            
-            let totalFiles = 1 + (vendorQueue.length * 2); 
-            let completedFiles = 0;
-
-            function updateProgress(stepMessage) {
-                completedFiles++;
-                let percent = Math.round((completedFiles / totalFiles) * 100);
-                progressBar.style.width = percent + "%";
-                progressText.innerText = percent + "%";
-                progressStep.innerText = stepMessage;
-            }
-
-            try {
-                // 1. Upload Standard
-                progressStep.innerText = "Uploading Standard Specifications to Database...";
-                const stdFormData = new FormData();
-                stdFormData.append("file", standardFile);
-                stdFormData.append("documentType", "Standard");
-                stdFormData.append("tenderId", 1); 
+           async function processUploads() {
+                const standardFile = document.getElementById('standardFile').files[0];
+                const statusMsg = document.getElementById('statusMessage');
+                const startBtn = document.getElementById('startBtn');
                 
-                let res = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: stdFormData });
-                if (!res.ok) throw new Error("Failed to upload standard specifications.");
-                
-                updateProgress("Standard Specifications uploaded successfully.");
+                if (!standardFile) { alert("Please upload the Standard Specifications file."); return; }
+                if (vendorQueue.length === 0) { alert("Please add at least one vendor offer."); return; }
 
-                // 2. Upload Vendors (Technical and Financial)
-                let uploadedVendorNames = [];
-                for (let i = 0; i < vendorQueue.length; i++) {
-                    const v = vendorQueue[i];
+                startBtn.disabled = true;
+
+                try {
+                    progressStep.innerText = "Checking AI Quota...";
+                    const quotaRes = await fetch('http://localhost:5172/api/Document/consume-quota', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vendorCount: vendorQueue.length })
+                    });
+
+                    if (!quotaRes.ok) {
+                        const errorData = await quotaRes.json();
+                        throw new Error(errorData.message || "Quota exceeded or API error.");
+                    }
+
+                    const quotaData = await quotaRes.json();
+                    console.log(`Quota approved. Remaining points: ${quotaData.remainingQuota}`);
+
+                    statusMsg.style.display = "none";
+                    progressContainer.style.display = "block";
+                    progressBar.style.width = "0%";
+                    progressBar.style.backgroundColor = "#2563eb";
+                    progressText.style.color = "#2563eb";
                     
-                    progressStep.innerText = `Uploading Technical offer for vendor: ${v.name}...`;
-                    const vTechFormData = new FormData();
-                    vTechFormData.append("file", v.techFile);
-                    vTechFormData.append("documentType", "TechnicalOffer");
-                    vTechFormData.append("vendorName", v.name);
-                    vTechFormData.append("tenderId", 1); 
+                    let totalFiles = 1 + (vendorQueue.length * 2); 
+                    let completedFiles = 0;
 
-                    let vTechRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vTechFormData });
-                    if (!vTechRes.ok) throw new Error(`Failed to upload technical offer for ${v.name}.`);
-                    updateProgress(`Technical Offer for ${v.name} uploaded successfully.`);
+                    function updateProgress(stepMessage) {
+                        completedFiles++;
+                        let percent = Math.round((completedFiles / totalFiles) * 100);
+                        progressBar.style.width = percent + "%";
+                        progressText.innerText = percent + "%";
+                        progressStep.innerText = stepMessage;
+                    }
 
+                    progressStep.innerText = "Uploading Standard Specifications to Database...";
+                    const stdFormData = new FormData();
+                    stdFormData.append("file", standardFile);
+                    stdFormData.append("documentType", "Standard");
+                    stdFormData.append("tenderId", 1); 
                     
-                    progressStep.innerText = `Uploading Financial offer for vendor: ${v.name}...`;
-                    const vFinFormData = new FormData();
-                    vFinFormData.append("file", v.finFile);
-                    vFinFormData.append("documentType", "FinancialOffer");
-                    vFinFormData.append("vendorName", v.name);
-                    vFinFormData.append("tenderId", 1); 
+                    let res = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: stdFormData });
+                    if (!res.ok) throw new Error("Failed to upload standard specifications.");
+                    
+                    updateProgress("Standard Specifications uploaded successfully.");
 
-                    let vFinRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vFinFormData });
-                    if (!vFinRes.ok) throw new Error(`Failed to upload financial offer for ${v.name}.`);
-                    updateProgress(`Financial Offer for ${v.name} uploaded successfully.`);
+                    // 2. Upload Vendors (Technical and Financial)
+                    let uploadedVendorNames = [];
+                    for (let i = 0; i < vendorQueue.length; i++) {
+                        const v = vendorQueue[i];
+                        
+                        progressStep.innerText = `Uploading Technical offer for vendor: ${v.name}...`;
+                        const vTechFormData = new FormData();
+                        vTechFormData.append("file", v.techFile);
+                        vTechFormData.append("documentType", "TechnicalOffer");
+                        vTechFormData.append("vendorName", v.name);
+                        vTechFormData.append("tenderId", 1); 
 
-                    uploadedVendorNames.push(v.name);
+                        let vTechRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vTechFormData });
+                        if (!vTechRes.ok) throw new Error(`Failed to upload technical offer for ${v.name}.`);
+                        updateProgress(`Technical Offer for ${v.name} uploaded successfully.`);
+
+                        
+                        progressStep.innerText = `Uploading Financial offer for vendor: ${v.name}...`;
+                        const vFinFormData = new FormData();
+                        vFinFormData.append("file", v.finFile);
+                        vFinFormData.append("documentType", "FinancialOffer");
+                        vFinFormData.append("vendorName", v.name);
+                        vFinFormData.append("tenderId", 1); 
+
+                        let vFinRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vFinFormData });
+                        if (!vFinRes.ok) throw new Error(`Failed to upload financial offer for ${v.name}.`);
+                        updateProgress(`Financial Offer for ${v.name} uploaded successfully.`);
+
+                        uploadedVendorNames.push(v.name);
+                    }
+
+                    sessionStorage.setItem('meditender_standard_file', standardFile.name);
+                    sessionStorage.setItem('meditender_vendors', JSON.stringify(uploadedVendorNames));
+
+                    progressStep.innerText = "All files uploaded successfully! Redirecting to engine...";
+                    progressBar.style.backgroundColor = "#10b981";
+                    progressText.style.color = "#10b981";
+                    
+                    setTimeout(() => {
+                        window.location.href = 'processing.html';
+                    }, 1500);
+
+                } catch (err) {
+                    progressContainer.style.display = "none";
+                    statusMsg.style.display = "block";
+                    statusMsg.innerText = "Error: " + err.message;
+                    startBtn.disabled = false;
                 }
-
-                sessionStorage.setItem('meditender_standard_file', standardFile.name);
-                sessionStorage.setItem('meditender_vendors', JSON.stringify(uploadedVendorNames));
-
-                progressStep.innerText = "All files uploaded successfully! Redirecting to engine...";
-                progressBar.style.backgroundColor = "#10b981";
-                progressText.style.color = "#10b981";
-                
-                setTimeout(() => {
-                    window.location.href = 'processing.html';
-                }, 1500);
-
-            } catch (err) {
-                progressContainer.style.display = "none";
-                statusMsg.style.display = "block";
-                statusMsg.innerText = "Error: " + err.message;
-                startBtn.disabled = false;
             }
         }
     </script>
