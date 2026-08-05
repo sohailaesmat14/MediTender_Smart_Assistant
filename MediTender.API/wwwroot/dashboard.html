@@ -45,12 +45,49 @@
         .outlier-tag { background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px; }
         .status-missing { color: #6b7280; font-weight: bold; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 12px;}
         tr, .charts-container, .summary-card, .insights-grid {page-break-inside: avoid !important;}
+        .req-col { width: 30%; min-width: 250px; font-weight: bold; color: #334155; position: sticky; left: 0; background-color: #f8fafc; z-index: 10; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
+        th.req-col { z-index: 11; } 
+
+        .evidence-tooltip { cursor: help; margin-left: 5px; font-size: 14px; position: relative; display: inline-block; }
+        .evidence-tooltip:hover::after {
+            content: attr(data-evidence);
+            position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
+            background: #1e293b; color: white; padding: 10px; border-radius: 6px; font-size: 12px;
+            white-space: pre-wrap; width: max-content; max-width: 300px; z-index: 20;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            pointer-events: none;
+        }
+
+        .dashboard-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.7); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .dashboard-modal-content { background: white; padding: 25px; border-radius: 12px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .dashboard-modal-actions { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
+        .btn-cancel { background: #e2e8f0; color: #475569; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-confirm { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        @media (max-width: 768px) {
+            .dashboard-controls { flex-direction: column; align-items: stretch !important; }
+            .dashboard-controls input, .dashboard-controls select { width: 100%; margin-bottom: 10px; }
+            .dashboard-controls div { display: flex; flex-direction: column; width: 100%; gap: 10px; }
+            .dashboard-controls button { width: 100%; }
+            table { font-size: 12px; }
+            .req-col { min-width: 150px; }
+        }
     </style>
 </head>
 <body>
     <header>
         <div class="logo">MediProcure <span>BI Analytics</span> 📊</div>
     </header>
+    <div class="dashboard-modal-overlay" id="confirmModal">
+        <div class="dashboard-modal-content">
+            <h3 style="margin-top: 0; color: #1e293b;">Confirm Manual Approval</h3>
+            <p id="confirmModalText" style="color: #475569; font-size: 14px; line-height: 1.5;"></p>
+            <div class="dashboard-modal-actions">
+                <button class="btn-cancel" onclick="document.getElementById('confirmModal').style.display='none'">Cancel</button>
+                <button class="btn-confirm" id="confirmModalBtn">Yes, Approve</button>
+            </div>
+        </div>
+    </div>
     <div class="container" id="dashboardContent">
         <!-- Data will be injected here by JS -->
     </div>
@@ -324,7 +361,7 @@
 
                         <div style="margin-left: auto; display: flex; gap: 10px;">
                             <button onclick="exportToExcel()" style="background: #10b981; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">📊 Export Excel</button>
-                            <button onclick="exportToPDF()" style="background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">📄 Export PDF</button>
+                            <button onclick="exportToPDF()" style="background: #3b82f6; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">📄 Export PDF</button>
                         </div>
                     </div>
 
@@ -337,8 +374,7 @@
                                     let isOutlier = (ev.totalPrice > 0 && ev.totalPrice < outlierThreshold) ? '<span class="outlier-tag">Abnormally Low</span>' : '';
                                     
                                     let actionBtn = ev.finalDecision === 'Pending Manual Review' ? 
-                                    `<button onclick="overrideDecision('${escapeForJS(ev.vendorName)}')" style="margin-top:8px; background:#2563eb; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; width:100%; font-weight:bold;">✅ Manual Override</button>` : '';
-
+                                    `<button onclick="triggerVendorOverrideModal('${escapeForJS(ev.vendorName)}')" style="margin-top:8px; background:#2563eb; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; width:100%; font-weight:bold;">✅ Manual Override</button>` : '';
                                 return `<th>
                                     <div style="font-size: 16px;">${escapeHTML(ev.vendorName)}</div>
                                     <div style="font-size:12px; font-weight:bold; color: ${statusColor}; margin: 5px 0;">${ev.finalDecision}</div>
@@ -365,9 +401,9 @@
                                         
                                         let reviewFlag = (req.isMandatory && (res.status === 'Partially Met' || res.status === 'Not Mentioned')) ? '⚠️ Review' : '';
                                         let maxScore = req.isMandatory ? 20 : 10;
-
+                                        let evidenceIcon = res.evidence && res.evidence !== "No evidence found." ? `<span class="evidence-tooltip" data-evidence="${escapeHTML(res.evidence)}">ℹ️</span>` : '';
                                         return `<td style="position: relative;">
-                                            <span class="${badgeClass}">${res.status}</span> 
+                                            <span class="${badgeClass}">${res.status}</span> ${evidenceIcon}
                                             <span style="font-size:11px; color:#d97706; font-weight:bold;">${reviewFlag}</span>
                                             <br><small style="color:#64748b;">Score: ${res.score}/${maxScore}</small>
                                             
@@ -593,6 +629,58 @@
             renderStatusDistributionChart();
             renderTotalScoreChart();
         }
+        
+        window.triggerVendorOverrideModal = function(vendorName) {
+            const modal = document.getElementById('confirmModal');
+            document.getElementById('confirmModalText').innerHTML = 
+                `Are you sure you want to completely approve ALL pending requirements for vendor <strong>${escapeHTML(vendorName)}</strong>?<br><br><small style="color:red;">This bulk action will be permanently saved to the database.</small>`;
+            
+            const confirmBtn = document.getElementById('confirmModalBtn');
+            
+            // لما يدوس تأكيد، هننادي الـ overrideDecision الأساسية
+            confirmBtn.onclick = async function() {
+                modal.style.display = 'none';
+                await overrideDecision(vendorName);
+            };
+            
+            modal.style.display = 'flex';
+        };
+
+        window.overrideDecision = async function(vendorName) {
+            let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
+            if (!vendor) return;
+
+            try {
+                const response = await fetch('http://localhost:5172/api/Document/override-vendor-decision', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        tenderId: vendor.tenderId, 
+                        vendorName: vendorName 
+                    })
+                });
+
+                if (!response.ok) throw new Error(await response.text());
+
+                vendor.details.forEach(d => {
+                    if (d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned")) {
+                        d.status = "Met";
+                        d.evidence = "✅ Vendor manually approved by committee.";
+                        d.score = 20;
+                    }
+                });
+
+                vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
+                vendor.finalDecision = "Recommended for Acceptance";
+                
+                sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
+                generateBIDashboard();
+                
+            } catch (err) {
+                alert("Failed to approve vendor: " + err.message);
+            }
+        };
+        
         function populateVendorFilter() {
             const vendorSelect = document.getElementById('vendorFilter');
             globalEvaluations.forEach(ev => {
@@ -602,6 +690,60 @@
                 vendorSelect.appendChild(option);
             });
         }
+
+        window.triggerOverrideModal = function(vendorName, reqText) {
+            const modal = document.getElementById('confirmModal');
+            document.getElementById('confirmModalText').innerHTML = 
+                `Are you sure you want to manually approve the requirement:<br><br><strong>"${reqText}"</strong><br><br>for vendor <strong>${vendorName}</strong>? <br><br><small style="color:red;">This action will be permanently saved.</small>`;
+            
+            const confirmBtn = document.getElementById('confirmModalBtn');
+            
+            confirmBtn.onclick = async function() {
+                modal.style.display = 'none';
+                await overrideItem(vendorName, reqText);
+            };
+            
+            modal.style.display = 'flex';
+        };
+
+        window.overrideItem = async function(vendorName, reqText) {
+            let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
+            if (!vendor) return;
+
+            try {
+                const response = await fetch('http://localhost:5172/api/Document/override-evaluation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tenderId: vendor.tenderId,
+                        vendorName: vendorName,
+                        requirement: reqText
+                    })
+                });
+
+                if (!response.ok) throw new Error(await response.text());
+
+                let detail = vendor.details.find(d => d.requirement === reqText);
+                if (detail) {
+                    detail.status = "Met";
+                    detail.evidence = "✅ Manually verified by committee.";
+                    detail.score = detail.isMandatory ? 20 : 10;
+                    
+                    vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
+                    
+                    let hasFailedMandatory = vendor.details.some(d => d.isMandatory && (d.status === "Not Met" || d.status === "Error"));
+                    let hasPartialOrMissing = vendor.details.some(d => d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned"));
+                    
+                    vendor.finalDecision = hasFailedMandatory ? "Recommended for Rejection" : 
+                                          (hasPartialOrMissing ? "Pending Manual Review" : "Recommended for Acceptance");
+                    
+                    sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
+                    generateBIDashboard();
+                }
+            } catch (err) {
+                alert("Failed to save override to database: " + err.message);
+            }
+        };
 
         function applyTableFilters() {
             const searchText = document.getElementById('searchInput').value.toLowerCase();

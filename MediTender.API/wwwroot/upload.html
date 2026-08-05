@@ -46,6 +46,15 @@
         .progress-step { color: #6b7280; font-size: 14px; font-weight: bold; }
         .progress-bar-bg { width: 100%; background-color: #e2e8f0; border-radius: 8px; overflow: hidden; height: 22px; }
         .progress-bar-fill { width: 0%; height: 100%; background-color: #2563eb; transition: width 0.4s ease, background-color 0.4s ease; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.7); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 450px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-title { margin-top: 0; color: #1e293b; font-size: 22px; margin-bottom: 10px; }
+        .modal-message { color: #475569; margin-bottom: 25px; line-height: 1.6; font-size: 15px; white-space: pre-line; }
+        .modal-actions { display: flex; justify-content: center; gap: 15px; }
+        .btn-cancel { background: #e2e8f0; color: #475569; border: none; padding: 10px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-cancel:hover { background: #cbd5e1; }
+        .btn-confirm { background: #10b981; color: white; border: none; padding: 10px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-confirm:hover { background: #059669; }
     </style>
 </head>
 <body>
@@ -106,28 +115,88 @@
 
     <script>
         let vendorQueue = [];
+        const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB limit (Server-side constraint)
+
+        function showCustomModal(title, message, isConfirm, onConfirm) {
+            const modal = document.getElementById('customModal');
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            
+            const actionsDiv = document.getElementById('modalActions');
+            actionsDiv.innerHTML = ''; 
+            
+            if (isConfirm) {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'btn-cancel';
+                cancelBtn.innerText = 'Cancel';
+                cancelBtn.onclick = () => modal.style.display = 'none';
+                
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'btn-confirm';
+                confirmBtn.innerText = 'Start Analysis 🚀';
+                confirmBtn.onclick = () => {
+                    modal.style.display = 'none';
+                    if (onConfirm) onConfirm();
+                };
+                
+                actionsDiv.appendChild(cancelBtn);
+                actionsDiv.appendChild(confirmBtn);
+            } else {
+                const okBtn = document.createElement('button');
+                okBtn.className = 'btn-confirm';
+                okBtn.innerText = 'OK';
+                okBtn.onclick = () => modal.style.display = 'none';
+                actionsDiv.appendChild(okBtn);
+            }
+            
+            modal.style.display = 'flex';
+        }
 
         function removeVendor(index) {
             vendorQueue.splice(index, 1); 
             updateVendorUI(); 
         }
 
+        function editVendor(index) {
+            const v = vendorQueue[index];
+            document.getElementById('vendorName').value = v.name;
+            
+            vendorQueue.splice(index, 1);
+            updateVendorUI();
+            
+            showCustomModal('Edit Vendor', `Vendor '${v.name}' loaded.\n\nPlease re-select the Technical and Financial PDF files to update.`, false);
+        }
+
         function addVendor() {
-            const vName = document.getElementById('vendorName').value.trim();
-            const vTechFile = document.getElementById('vendorTechFile').files[0];
-            const vFinFile = document.getElementById('vendorFinFile').files[0];
+            const vNameInput = document.getElementById('vendorName');
+            const vTechFileInput = document.getElementById('vendorTechFile');
+            const vFinFileInput = document.getElementById('vendorFinFile');
+            
+            const vName = vNameInput.value.trim();
+            const vTechFile = vTechFileInput.files[0];
+            const vFinFile = vFinFileInput.files[0];
             
             if (!vName || !vTechFile || !vFinFile) { 
-                alert("Please provide vendor name, technical offer, and financial offer."); 
+                showCustomModal('Missing Information', 'Please provide the vendor name, technical offer, and financial offer.', false); 
                 return; 
+            }
+            
+            if (vendorQueue.some(v => v.name.toLowerCase() === vName.toLowerCase())) {
+                showCustomModal('Duplicate Vendor', `A vendor with the name '${vName}' is already in the queue!`, false);
+                return;
+            }
+
+            if (vTechFile.size > MAX_FILE_SIZE || vFinFile.size > MAX_FILE_SIZE) {
+                showCustomModal('File Too Large', 'One of the files exceeds the 100MB limit. Please upload a smaller file.', false);
+                return;
             }
             
             vendorQueue.push({ name: vName, techFile: vTechFile, finFile: vFinFile });
             updateVendorUI();
             
-            document.getElementById('vendorName').value = "";
-            document.getElementById('vendorTechFile').value = "";
-            document.getElementById('vendorFinFile').value = "";
+            vNameInput.value = "";
+            vTechFileInput.value = "";
+            vFinFileInput.value = "";
         }
 
         function updateVendorUI() {
@@ -141,154 +210,147 @@
                         <span style="color: #64748b;">Tech:</span> ${v.techFile.name}<br>
                         <span style="color: #64748b;">Fin:</span> ${v.finFile.name}
                     </div>
-                    <button onclick="removeVendor(${index})" style="background: #dc2626; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">🗑️ Delete</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="editVendor(${index})" style="background: #eab308; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">✏️ Edit</button>
+                        <button onclick="removeVendor(${index})" style="background: #dc2626; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">🗑️ Delete</button>
+                    </div>
                 </div>`
             ).join('');
         }
 
-        let today = new Date().toDateString();
-        let storedDate = localStorage.getItem('meditender_quota_date');
-        let dailyQuota = 200;
-
-        if (storedDate === today) {
-            dailyQuota = localStorage.getItem('meditender_quota') ? parseInt(localStorage.getItem('meditender_quota')) : 200;
-        } else {
-            localStorage.setItem('meditender_quota_date', today);
-            localStorage.setItem('meditender_quota', 200);
-        }
-        async function processUploads() {
+        function processUploads() {
             const standardFile = document.getElementById('standardFile').files[0];
+
+            if (!standardFile) { 
+                showCustomModal('Missing Document', 'Please upload the Standard Specifications file.', false); 
+                return; 
+            }
+            if (vendorQueue.length === 0) { 
+                showCustomModal('Missing Vendor', 'Please add at least one vendor offer to the queue.', false); 
+                return; 
+            }
+            if (standardFile.size > MAX_FILE_SIZE) {
+                showCustomModal('File Too Large', 'The Standard Specifications file exceeds the 100MB limit.', false);
+                return;
+            }
+
+            let expectedCost = vendorQueue.length * 15;
+            let confirmMessage = `The AI analysis will require ${expectedCost} points from your quota.\n\nAre you sure you want to proceed?`;
+            
+            showCustomModal('Confirm Analysis', confirmMessage, true, async () => {
+                await executeUploadSequence(standardFile);
+            });
+        }
+
+        async function executeUploadSequence(standardFile) {
             const statusMsg = document.getElementById('statusMessage');
             const startBtn = document.getElementById('startBtn');
-            
             const progressContainer = document.getElementById('progressContainer');
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
             const progressStep = document.getElementById('progressStep');
 
-            if (!standardFile) { alert("Please upload the Standard Specifications file."); return; }
-            if (vendorQueue.length === 0) { alert("Please add at least one vendor offer."); return; }
+            startBtn.disabled = true;
 
-            let costPerVendor = 15; 
-            let expectedCost = vendorQueue.length * costPerVendor; 
-
-            if (expectedCost > dailyQuota) {
-                alert(`❌ Your current balance (${dailyQuota} points) isn't enough for this operation which requires (${expectedCost} points).\nYou have exhausted your daily AI quota!`);
-                return; 
-            }
-
-            let confirmMessage = `The analysis will consume ${expectedCost} points from your daily quota.\nAvailable balance: ${dailyQuota} points.\nRemaining balance after operation: ${dailyQuota - expectedCost} points.\n\nDo you confirm to start the analysis?`;
-            
-            if (!confirm(confirmMessage)) {
-                console.log("Analysis cancelled by user.");
-                return; 
-            }
-
-            dailyQuota -= expectedCost;
-           async function processUploads() {
-                const standardFile = document.getElementById('standardFile').files[0];
-                const statusMsg = document.getElementById('statusMessage');
-                const startBtn = document.getElementById('startBtn');
+            try {
+                progressStep.innerText = "Checking AI Quota...";
+                progressContainer.style.display = "block";
                 
-                if (!standardFile) { alert("Please upload the Standard Specifications file."); return; }
-                if (vendorQueue.length === 0) { alert("Please add at least one vendor offer."); return; }
+                const quotaRes = await fetch('http://localhost:5172/api/Document/consume-quota', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vendorCount: vendorQueue.length })
+                });
 
-                startBtn.disabled = true;
-
-                try {
-                    progressStep.innerText = "Checking AI Quota...";
-                    const quotaRes = await fetch('http://localhost:5172/api/Document/consume-quota', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ vendorCount: vendorQueue.length })
-                    });
-
-                    if (!quotaRes.ok) {
-                        const errorData = await quotaRes.json();
-                        throw new Error(errorData.message || "Quota exceeded or API error.");
-                    }
-
-                    const quotaData = await quotaRes.json();
-                    console.log(`Quota approved. Remaining points: ${quotaData.remainingQuota}`);
-
-                    statusMsg.style.display = "none";
-                    progressContainer.style.display = "block";
-                    progressBar.style.width = "0%";
-                    progressBar.style.backgroundColor = "#2563eb";
-                    progressText.style.color = "#2563eb";
-                    
-                    let totalFiles = 1 + (vendorQueue.length * 2); 
-                    let completedFiles = 0;
-
-                    function updateProgress(stepMessage) {
-                        completedFiles++;
-                        let percent = Math.round((completedFiles / totalFiles) * 100);
-                        progressBar.style.width = percent + "%";
-                        progressText.innerText = percent + "%";
-                        progressStep.innerText = stepMessage;
-                    }
-
-                    progressStep.innerText = "Uploading Standard Specifications to Database...";
-                    const stdFormData = new FormData();
-                    stdFormData.append("file", standardFile);
-                    stdFormData.append("documentType", "Standard");
-                    stdFormData.append("tenderId", 1); 
-                    
-                    let res = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: stdFormData });
-                    if (!res.ok) throw new Error("Failed to upload standard specifications.");
-                    
-                    updateProgress("Standard Specifications uploaded successfully.");
-
-                    // 2. Upload Vendors (Technical and Financial)
-                    let uploadedVendorNames = [];
-                    for (let i = 0; i < vendorQueue.length; i++) {
-                        const v = vendorQueue[i];
-                        
-                        progressStep.innerText = `Uploading Technical offer for vendor: ${v.name}...`;
-                        const vTechFormData = new FormData();
-                        vTechFormData.append("file", v.techFile);
-                        vTechFormData.append("documentType", "TechnicalOffer");
-                        vTechFormData.append("vendorName", v.name);
-                        vTechFormData.append("tenderId", 1); 
-
-                        let vTechRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vTechFormData });
-                        if (!vTechRes.ok) throw new Error(`Failed to upload technical offer for ${v.name}.`);
-                        updateProgress(`Technical Offer for ${v.name} uploaded successfully.`);
-
-                        
-                        progressStep.innerText = `Uploading Financial offer for vendor: ${v.name}...`;
-                        const vFinFormData = new FormData();
-                        vFinFormData.append("file", v.finFile);
-                        vFinFormData.append("documentType", "FinancialOffer");
-                        vFinFormData.append("vendorName", v.name);
-                        vFinFormData.append("tenderId", 1); 
-
-                        let vFinRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vFinFormData });
-                        if (!vFinRes.ok) throw new Error(`Failed to upload financial offer for ${v.name}.`);
-                        updateProgress(`Financial Offer for ${v.name} uploaded successfully.`);
-
-                        uploadedVendorNames.push(v.name);
-                    }
-
-                    sessionStorage.setItem('meditender_standard_file', standardFile.name);
-                    sessionStorage.setItem('meditender_vendors', JSON.stringify(uploadedVendorNames));
-
-                    progressStep.innerText = "All files uploaded successfully! Redirecting to engine...";
-                    progressBar.style.backgroundColor = "#10b981";
-                    progressText.style.color = "#10b981";
-                    
-                    setTimeout(() => {
-                        window.location.href = 'processing.html';
-                    }, 1500);
-
-                } catch (err) {
-                    progressContainer.style.display = "none";
-                    statusMsg.style.display = "block";
-                    statusMsg.innerText = "Error: " + err.message;
-                    startBtn.disabled = false;
+                if (!quotaRes.ok) {
+                    const errorData = await quotaRes.json();
+                    throw new Error(errorData.message || "Quota exceeded or API error.");
                 }
+
+                statusMsg.style.display = "none";
+                progressBar.style.width = "0%";
+                progressBar.style.backgroundColor = "#2563eb";
+                progressText.style.color = "#2563eb";
+                
+                let totalFiles = 1 + (vendorQueue.length * 2); 
+                let completedFiles = 0;
+
+                function updateProgress(stepMessage) {
+                    completedFiles++;
+                    let percent = Math.round((completedFiles / totalFiles) * 100);
+                    progressBar.style.width = percent + "%";
+                    progressText.innerText = percent + "%";
+                    progressStep.innerText = stepMessage;
+                }
+
+                progressStep.innerText = "Uploading Standard Specifications to Database...";
+                const stdFormData = new FormData();
+                stdFormData.append("file", standardFile);
+                stdFormData.append("documentType", "Standard");
+                stdFormData.append("tenderId", 1); 
+                
+                let res = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: stdFormData });
+                if (!res.ok) throw new Error("Failed to upload standard specifications.");
+                
+                updateProgress("Standard Specifications uploaded successfully.");
+
+                let uploadedVendorNames = [];
+                for (let i = 0; i < vendorQueue.length; i++) {
+                    const v = vendorQueue[i];
+                    
+                    progressStep.innerText = `Uploading Technical offer for vendor: ${v.name}...`;
+                    const vTechFormData = new FormData();
+                    vTechFormData.append("file", v.techFile);
+                    vTechFormData.append("documentType", "TechnicalOffer");
+                    vTechFormData.append("vendorName", v.name);
+                    vTechFormData.append("tenderId", 1); 
+
+                    let vTechRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vTechFormData });
+                    if (!vTechRes.ok) throw new Error(`Failed to upload technical offer for ${v.name}.`);
+                    updateProgress(`Technical Offer for ${v.name} uploaded successfully.`);
+
+                    progressStep.innerText = `Uploading Financial offer for vendor: ${v.name}...`;
+                    const vFinFormData = new FormData();
+                    vFinFormData.append("file", v.finFile);
+                    vFinFormData.append("documentType", "FinancialOffer");
+                    vFinFormData.append("vendorName", v.name);
+                    vFinFormData.append("tenderId", 1); 
+
+                    let vFinRes = await fetch('http://localhost:5172/api/Document/upload-pdf', { method: 'POST', body: vFinFormData });
+                    if (!vFinRes.ok) throw new Error(`Failed to upload financial offer for ${v.name}.`);
+                    updateProgress(`Financial Offer for ${v.name} uploaded successfully.`);
+
+                    uploadedVendorNames.push(v.name);
+                }
+
+                sessionStorage.setItem('meditender_standard_file', standardFile.name);
+                sessionStorage.setItem('meditender_vendors', JSON.stringify(uploadedVendorNames));
+
+                progressStep.innerText = "All files uploaded successfully! Redirecting to engine...";
+                progressBar.style.backgroundColor = "#10b981";
+                progressText.style.color = "#10b981";
+                
+                setTimeout(() => {
+                    window.location.href = 'processing.html';
+                }, 1500);
+
+            } catch (err) {
+                progressContainer.style.display = "none";
+                statusMsg.style.display = "block";
+                statusMsg.innerText = "Error: " + err.message;
+                startBtn.disabled = false;
             }
         }
     </script>
+    <!-- Custom Modal -->
+    <div class="modal-overlay" id="customModal">
+        <div class="modal-content">
+            <h3 class="modal-title" id="modalTitle">Notification</h3>
+            <div class="modal-message" id="modalMessage"></div>
+            <div class="modal-actions" id="modalActions">
+                <!-- Buttons will be injected here via JS -->
+            </div>
+        </div>
+    </div>
 </body>
 </html>

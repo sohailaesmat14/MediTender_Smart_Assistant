@@ -24,6 +24,13 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         h2 { font-size: 32px; color: #1e293b; margin-bottom: 10px; }
         p { font-size: 18px; color: #64748b; font-weight: bold; }
+        /* Progress Bar Styles */
+        .progress-wrapper { width: 80%; max-width: 500px; margin: 20px auto; background: #e2e8f0; border-radius: 10px; overflow: hidden; height: 22px; display: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+        .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; color: white; font-size: 12px; font-weight: bold; box-sizing: border-box;}
+        
+        /* Retry Button Styles */
+        .retry-btn { margin-top: 25px; padding: 12px 25px; background-color: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; display: none; transition: 0.3s; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3); }
+        .retry-btn:hover { background-color: #dc2626; transform: translateY(-2px); }
     </style>
 </head>
 <body>
@@ -39,44 +46,65 @@
     </header>
 
     <div class="loading-container">
-        <div class="spinner-wrapper">
+        <div class="spinner-wrapper" id="spinnerWrapper">
             <div class="spinner"></div>
             <div class="brain-icon">🧠</div>
         </div>
-        <h2>AI Engine is Working...</h2>
+        <h2 id="mainTitle">AI Engine is Working...</h2>
         <p id="processStatus">Initializing RAG extraction pipeline...</p>
+        
+        <div class="progress-wrapper" id="progressWrapper">
+            <div class="progress-fill" id="progressFill">0%</div>
+        </div>
+        
+        <button class="retry-btn" id="retryBtn" onclick="window.location.replace('upload.html')">🔄 Go Back & Retry</button>
     </div>
 
     <script>
         window.addEventListener('beforeunload', function (e) {
-            // This message might not be shown in modern browsers, 
-            // but returning a string triggers the browser's default warning dialog.
             const confirmationMessage = 'Are you sure you want to leave? Your progress will be lost.';
             e.returnValue = confirmationMessage; 
             return confirmationMessage;
         });
+
         document.addEventListener("DOMContentLoaded", async () => {
             const standardFile = sessionStorage.getItem('meditender_standard_file');
             const vendorsRaw = sessionStorage.getItem('meditender_vendors');
+            
             const statusText = document.getElementById('processStatus');
+            const progressWrapper = document.getElementById('progressWrapper');
+            const progressFill = document.getElementById('progressFill');
+            const retryBtn = document.getElementById('retryBtn');
+            const spinnerWrapper = document.getElementById('spinnerWrapper');
+            const mainTitle = document.getElementById('mainTitle');
+
+            function showErrorState(message) {
+                window.onbeforeunload = null;
+                statusText.innerText = message;
+                statusText.style.color = "#dc2626";
+                mainTitle.innerText = "Analysis Failed";
+                spinnerWrapper.style.display = 'none';
+                progressWrapper.style.display = 'none';
+                retryBtn.style.display = 'inline-block'; 
+                
+            }
 
             if (!standardFile || !vendorsRaw) {
-                statusText.innerText = "Error: Missing data from upload step.";
-                statusText.style.color = "red";
+                showErrorState("Error: Missing data from upload step.");
                 return;
             }
 
             const vendors = JSON.parse(vendorsRaw);
+            progressWrapper.style.display = 'block';
 
             try {
-                // Step 1: Extract standard requirements using AI
+                progressFill.style.width = '10%';
+                progressFill.innerText = '10%';
                 statusText.innerText = "Phase 1: Auto-extracting mandatory specifications from Tender Standard...";
+                
                 let extractRes = await fetch(`http://localhost:5172/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}`);
                 
-                if (!extractRes.ok) {
-                    let errorMsg = await extractRes.text();
-                    throw new Error(`API Error: ${errorMsg}`);
-                }
+                if (!extractRes.ok) throw new Error(`API Error: ${await extractRes.text()}`);
                 
                 let extractData = await extractRes.json();
                 let requirements = extractData.requirements;
@@ -85,32 +113,44 @@
                     throw new Error("AI could not find any requirements in the document.");
                 }
 
-                // Step 2: Run Multi-Vendor Comparison
-                statusText.innerText = `Phase 2: Semantic matching and comparing ${vendors.length} vendors against requirements...`;
+                progressFill.style.width = '30%';
+                progressFill.innerText = '30%';
+                statusText.innerText = `Phase 2: Semantic matching and comparing ${vendors.length} vendors... (This may take a few minutes)`;
+                
+                let simulatedProgress = 30;
+                let progressInterval = setInterval(() => {
+                    if (simulatedProgress < 95) { 
+                        simulatedProgress += 1;
+                        progressFill.style.width = simulatedProgress + '%';
+                        progressFill.innerText = simulatedProgress + '%';
+                    }
+                }, 2000);
+
                 let compareRes = await fetch('http://localhost:5172/api/Document/compare-vendors', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tenderId: 1, requirements: requirements, vendorNames: vendors })
                 });
 
-                if (!compareRes.ok) {
-                    let errorMsg = await compareRes.text();
-                    throw new Error(`Comparison API Error: ${errorMsg}`);
-                }
+                clearInterval(progressInterval);
+
+                if (!compareRes.ok) throw new Error(`Comparison API Error: ${await compareRes.text()}`);
                 
                 let evaluations = await compareRes.json();
 
-                // Save final analysis to sessionStorage for Dashboard
+                progressFill.style.width = '100%';
+                progressFill.innerText = '100%';
                 sessionStorage.setItem('meditender_evaluations', JSON.stringify(evaluations));
                 
                 statusText.innerText = "Analysis Complete! Redirecting to Decision Matrix...";
-                window.onbeforeunload = null;
-                window.onpopstate = null; 
-                window.location.replace('dashboard.html'); 
+                window.onbeforeunload = null; 
+                
+                setTimeout(() => {
+                    window.location.replace('dashboard.html'); 
+                }, 1000);
+
             } catch (err) {
-                statusText.innerText = "System Error: " + err.message;
-                statusText.style.color = "red";
-                document.querySelector('.spinner').style.display = 'none';
+                showErrorState("System Error: " + err.message);
             }
         });
     </script>
