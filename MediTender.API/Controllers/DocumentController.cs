@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using MediTender.API.Services;
 using MediTender.API.Data;
 using MediTender.API.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace MediTender.API.Controllers
 {
@@ -130,6 +129,10 @@ namespace MediTender.API.Controllers
 
                 var results = await comparisonService.CompareVendorsAsync(request.TenderId, request.Requirements, request.VendorNames);
                 return Ok(results);
+            }
+            catch (OperationCanceledException)
+            {
+                return StatusCode(499, "Client closed the request.");
             }
             catch (Exception ex)
             {

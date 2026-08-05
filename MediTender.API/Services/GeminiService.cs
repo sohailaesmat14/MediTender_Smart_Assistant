@@ -1,21 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using Qdrant.Client;
+using Qdrant.Client.Grpc;
+using MediTender.API.Models;
+using MediTender.API.Data;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 
 namespace MediTender.API.Services
 {
-    public interface IGeminiService
-    {
-        Task<string> GenerateChatResponseAsync(string prompt);
-        Task<float[]> GetEmbeddingAsync(string text);
-        Task<List<float[]>> GetEmbeddingsBatchAsync(List<string> texts); 
-    }
-
     public class GeminiService : IGeminiService
     {
         private readonly string _googleApiKey;
@@ -29,7 +22,7 @@ namespace MediTender.API.Services
             _httpClient = httpClient;
         }
 
-        public async Task<string> GenerateChatResponseAsync(string prompt)
+        public async Task<string> GenerateChatResponseAsync(string prompt, CancellationToken cancellationToken = default)
         {
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_chatModel}:generateContent?key={_googleApiKey}";
             var payload = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
@@ -38,7 +31,8 @@ namespace MediTender.API.Services
             int maxRetries = 5;
             for (int i = 0; i < maxRetries; i++)
             {
-                var response = await _httpClient.PostAsync(url, content);
+                cancellationToken.ThrowIfCancellationRequested();
+                var response = await _httpClient.PostAsync(url, content, cancellationToken);
                 var responseString = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
@@ -64,7 +58,7 @@ namespace MediTender.API.Services
             return "";
         }
 
-        public async Task<float[]> GetEmbeddingAsync(string text)
+        public async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
         {
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={_googleApiKey}";
             var payload = new { model = "models/gemini-embedding-001", content = new { parts = new[] { new { text = text } } } };
@@ -73,7 +67,8 @@ namespace MediTender.API.Services
             int maxRetries = 5;
             for (int i = 0; i < maxRetries; i++)
             {
-                var response = await _httpClient.PostAsync(url, content);
+                cancellationToken.ThrowIfCancellationRequested();
+                var response = await _httpClient.PostAsync(url, content, cancellationToken);
                 var responseString = await response.Content.ReadAsStringAsync();
                 
                 if (response.IsSuccessStatusCode)
@@ -89,7 +84,7 @@ namespace MediTender.API.Services
                     
                     string issue = (int)response.StatusCode == 429 ? "Rate Limit Hit" : "High Demand 503";
                     Console.WriteLine($"[{issue} - Embedding] Waiting 35 seconds before retry {i + 1}...");
-                    await Task.Delay(35000);
+                    await Task.Delay(35000, cancellationToken);
                     continue;
                 }
 
@@ -99,7 +94,7 @@ namespace MediTender.API.Services
             return Array.Empty<float>();
         }
 
-        public async Task<List<float[]>> GetEmbeddingsBatchAsync(List<string> texts)
+        public async Task<List<float[]>> GetEmbeddingsBatchAsync(List<string> texts, CancellationToken cancellationToken = default)
         {
             if (texts == null || !texts.Any()) return new List<float[]>();
 

@@ -27,12 +27,12 @@ namespace MediTender.API.Services
             _financialService = financialService; 
             }
 
-        public async Task<List<OfferEvaluation>> CompareVendorsAsync(int tenderId, List<Standard> requirements, List<string> vendorNames)
+        public async Task<List<OfferEvaluation>> CompareVendorsAsync(int tenderId, List<Standard> requirements, List<string> vendorNames, CancellationToken cancellationToken = default)        
         {
             var allEvaluations = new List<OfferEvaluation>();
             var reqTexts = requirements.Select(r => r.RequirementText).ToList();
-            var reqEmbeddings = await _geminiService.GetEmbeddingsBatchAsync(reqTexts);
-            var existingTender = await _dbContext.Tenders.FindAsync(tenderId);
+            var reqEmbeddings = await _geminiService.GetEmbeddingsBatchAsync(reqTexts, cancellationToken);
+            var existingTender = await _dbContext.Tenders.FindAsync(new object[] { tenderId }, cancellationToken);
             if (existingTender == null)
             {
                 var newTender = new Tender 
@@ -41,31 +41,32 @@ namespace MediTender.API.Services
                     Description = "Auto-created during evaluation process" 
                 };
                 _dbContext.Tenders.Add(newTender);
-                await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync(cancellationToken);
             }
             foreach (var vendor in vendorNames)
             {
-                var evaluation = new OfferEvaluation
-                {
-                    TenderId = tenderId,
-                    VendorName = vendor,
-                    EvaluationDate = DateTime.UtcNow,
-                    TotalScore = 0,
-                    FinalDecision = "Pending",
-                    Details = new List<EvaluationDetail>()
-                };
+                cancellationToken.ThrowIfCancellationRequested();
 
-                try
-                {
-                    var contextBuilder = new StringBuilder();
-                    var guardFilter = new Filter();
-                    guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "tenderId", Match = new Match { Keyword = tenderId.ToString() } } });
-                    guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
-                    guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
+    var evaluation = new OfferEvaluation
+    {
+        TenderId = tenderId,
+        VendorName = vendor,
+        EvaluationDate = DateTime.UtcNow,
+        TotalScore = 0,
+        FinalDecision = "Pending",
+        Details = new List<EvaluationDetail>()
+    };
 
-                    var guardCheck = await _qdrantClient.SearchAsync(_collectionName, reqEmbeddings.First(), guardFilter, limit: 1);
+    try
+    {
+        var contextBuilder = new StringBuilder();
+        
+        var guardFilter = new Filter();
+        guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "tenderId", Match = new Match { Keyword = tenderId.ToString() } } });
+        guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
+        guardFilter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
 
-                    if (guardCheck.Count == 0)
+        var guardCheck = await _qdrantClient.SearchAsync(_collectionName, reqEmbeddings.First(), guardFilter, limit: 1, cancellationToken: cancellationToken);if (guardCheck.Count == 0)
                     {
                         throw new Exception($"[Data Missing] No Technical Offer found for vendor '{vendor}' under Tender ID '{tenderId}'. Database IDs might be out of sync. Please hit Reset System and try again.");
                     }
@@ -81,7 +82,7 @@ namespace MediTender.API.Services
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = "TechnicalOffer" } } });
                         filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendor } } });
 
-                        var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 8);
+                        var searchResults = await _qdrantClient.SearchAsync(_collectionName, reqEmbedding, filter, limit: 8, cancellationToken: cancellationToken);
 
                         foreach (var result in searchResults)
                         {
@@ -108,7 +109,7 @@ namespace MediTender.API.Services
                     - ""Score"": integer from 0 to 10.
                     ";
 
-                    var aiResponse = await _geminiService.GenerateChatResponseAsync(prompt);
+                    var aiResponse = await _geminiService.GenerateChatResponseAsync(prompt, cancellationToken);
                     
                     int startIndex = aiResponse.IndexOf('[');
                     int endIndex = aiResponse.LastIndexOf(']');
@@ -240,10 +241,10 @@ namespace MediTender.API.Services
                 _dbContext.OfferEvaluations.Add(evaluation);
                 allEvaluations.Add(evaluation);
 
-                await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync(cancellationToken);
 
                 Console.WriteLine($"[Pacing] Evaluated vendor {vendor}. Moving to next...");
-                await Task.Delay(2000);
+                await Task.Delay(2000, cancellationToken);
             }
 
             
