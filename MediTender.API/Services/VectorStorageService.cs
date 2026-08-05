@@ -68,5 +68,26 @@ namespace MediTender.API.Services
                 await _qdrantClient.UpsertAsync(_collectionName, pointBatch);
             }
         }
+        public async Task DeleteExistingDocumentAsync(int tenderId, string documentType, string vendorName)
+        {
+            var filter = new Filter();
+            filter.Must.Add(new Condition { Field = new FieldCondition { Key = "tenderId", Match = new Match { Keyword = tenderId.ToString() } } });
+            filter.Must.Add(new Condition { Field = new FieldCondition { Key = "documentType", Match = new Match { Keyword = documentType } } });
+            
+            if (!string.IsNullOrWhiteSpace(vendorName))
+            {
+                filter.Must.Add(new Condition { Field = new FieldCondition { Key = "vendorName", Match = new Match { Keyword = vendorName } } });
+            }
+
+            try
+            {
+                await _qdrantClient.DeleteAsync(_collectionName, filter);
+                _logger.LogInformation($"Deleted old chunks for Tender: {tenderId}, Type: {documentType}, Vendor: {vendorName}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete existing document chunks.");
+            }
+        }
     }
 }
