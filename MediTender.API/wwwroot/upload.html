@@ -589,6 +589,18 @@
                             }),
                         },
                     );
+                    
+                    progressStep.innerText = "Initializing new Tender ID...";
+                    const initRes = await fetch(`${CONFIG.API_BASE_URL}/api/Document/init-tender`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!initRes.ok) throw new Error("Failed to initialize a new tender.");
+                    const initData = await initRes.json();
+                    const currentTenderId = initData.tenderId; 
+
+                    sessionStorage.setItem('meditender_current_id', currentTenderId);
 
                     if (!quotaRes.ok) {
                         const errorData = await quotaRes.json();
@@ -620,7 +632,7 @@
                     const stdFormData = new FormData();
                     stdFormData.append("file", standardFile);
                     stdFormData.append("documentType", "Standard");
-                    stdFormData.append("tenderId", 1);
+                    stdFormData.append("tenderId", currentTenderId);
 
                     let res = await fetch(
                         "http://localhost:5172/api/Document/upload-pdf",
@@ -651,7 +663,7 @@
                         vTechFormData.append("file", v.techFile);
                         vTechFormData.append("documentType", "TechnicalOffer");
                         vTechFormData.append("vendorName", v.name);
-                        vTechFormData.append("tenderId", 1);
+                        vTechFormData.append("tenderId", currentTenderId);
 
                         let vTechRes = await fetch(
                             "http://localhost:5172/api/Document/upload-pdf",
@@ -677,7 +689,7 @@
                         vFinFormData.append("file", v.finFile);
                         vFinFormData.append("documentType", "FinancialOffer");
                         vFinFormData.append("vendorName", v.name);
-                        vFinFormData.append("tenderId", 1);
+                        vFinFormData.append("tenderId", currentTenderId);
 
                         let vFinRes = await fetch(
                             "http://localhost:5172/api/Document/upload-pdf",

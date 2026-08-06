@@ -342,6 +342,28 @@ namespace MediTender.API.Controllers
             }
         }
 
+        [HttpPost("init-tender")]
+        public async Task<IActionResult> InitTender()
+        {
+            try
+            {
+                var tender = new Tender 
+                { 
+                    Title = $"Tender - {DateTime.UtcNow:yyyy-MM-dd HH:mm}", 
+                    Description = "Auto-generated via AI Workflow" 
+                };
+                
+                _dbContext.Tenders.Add(tender);
+                await _dbContext.SaveChangesAsync(); 
+                
+                return Ok(new { TenderId = tender.Id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initializing a new tender.");
+                return StatusCode(500, new { Message = "An internal server error occurred while creating the tender." });
+            }
+        }
         public class OverrideRequest
         {
             public int TenderId { get; set; }

@@ -205,6 +205,16 @@
         </div>
 
         <script>
+
+            const standardFile = sessionStorage.getItem('meditender_standard_file');
+            const vendorsRaw = sessionStorage.getItem('meditender_vendors');
+            const currentTenderId = sessionStorage.getItem('meditender_current_id'); 
+
+            if (!standardFile || !vendorsRaw || !currentTenderId) {
+                showErrorState("Error: Missing data or Tender ID from upload step.");
+                return;
+            }
+
             if (!sessionStorage.getItem("jwt_token")) {
                 window.location.replace("login.html");
             }
@@ -255,12 +265,10 @@
                     statusText.innerText =
                         "Phase 1: Auto-extracting mandatory specifications from Tender Standard...";
 
-                    let extractRes = await fetch(
-                        `http://localhost:5172/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=1`,
-                        {
-                            headers: { Authorization: `Bearer ${token}` },
-                        },
-                    );
+                    let extractRes = await fetch(`${CONFIG.API_BASE_URL}/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=${currentTenderId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
                     if (!extractRes.ok)
                         throw new Error(
                             `API Error: ${await extractRes.text()}`,
@@ -288,20 +296,14 @@
                         }
                     }, 2000);
 
-                    let compareRes = await fetch(
-                        "http://localhost:5172/api/Document/compare-vendors",
-                        {
-                            method: "POST",
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({
-                                tenderId: 1,
-                                vendorNames: vendors,
-                            }),
+                    let compareRes = await fetch(`${CONFIG.API_BASE_URL}/api/Document/compare-vendors`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
                         },
-                    );
+                        body: JSON.stringify({ tenderId: parseInt(currentTenderId), vendorNames: vendors }) // بدل tenderId: 1
+                    });
 
                     clearInterval(progressInterval);
 

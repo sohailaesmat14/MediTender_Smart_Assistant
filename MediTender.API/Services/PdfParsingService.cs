@@ -22,8 +22,7 @@ namespace MediTender.API.Services
 
             extractedText = extractedText.Replace("✓", " Yes ")
                                          .Replace("✔", " Yes ")
-                                         .Replace("☑", " Yes ")
-                                         .Replace("?", " ");
+                                         .Replace("☑", " Yes ");
 
             return extractedText;
         }
