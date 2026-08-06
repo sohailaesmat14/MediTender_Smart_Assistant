@@ -68,22 +68,33 @@ namespace MediTender.API.Services
             
             try
             {
-                var requirements = JsonSerializer.Deserialize<List<Standard>>(cleanedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var extractedDtos = JsonSerializer.Deserialize<List<StandardExtractionDto>>(cleanedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 
-                if (requirements != null && requirements.Any())
+                var requirements = new List<Standard>();
+
+                if (extractedDtos != null && extractedDtos.Any())
                 {
                     var oldStandards = _dbContext.Standards.Where(s => s.TenderId == tenderId);
                     _dbContext.Standards.RemoveRange(oldStandards);
 
-                    foreach (var req in requirements)
+                    foreach (var dto in extractedDtos)
                     {
-                        req.TenderId = tenderId;
+                        var req = new Standard
+                        {
+                            TenderId = tenderId,
+                            ItemName = dto.ItemName,
+                            Description = dto.Description,
+                            RequirementText = dto.RequirementText,
+                            IsMandatory = dto.IsMandatory
+                        };
+                        
                         _dbContext.Standards.Add(req);
+                        requirements.Add(req); 
                     }
                     await _dbContext.SaveChangesAsync();
                 }
 
-                return requirements ?? new List<Standard>();
+                return requirements;
             }
             catch
             {
@@ -91,4 +102,13 @@ namespace MediTender.API.Services
             }
         }
     }
+
+    public class StandardExtractionDto
+    {
+        public string ItemName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string RequirementText { get; set; } = string.Empty;
+        public bool IsMandatory { get; set; }
+    }
+
 }
