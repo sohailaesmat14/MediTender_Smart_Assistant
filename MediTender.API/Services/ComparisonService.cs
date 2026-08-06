@@ -4,6 +4,7 @@ using Qdrant.Client;
 using Qdrant.Client.Grpc;
 using MediTender.API.Models;
 using MediTender.API.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace MediTender.API.Services
 {   
@@ -51,6 +52,29 @@ namespace MediTender.API.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var oldEvaluations = await _dbContext.OfferEvaluations
+                .Include(e => e.Details)
+                .Where(e => e.TenderId == tenderId && e.VendorName == vendor)
+                .ToListAsync(cancellationToken);
+
+                if (oldEvaluations.Any())
+                {
+                    var oldDetails = oldEvaluations.SelectMany(e => e.Details);
+                    _dbContext.EvaluationDetails.RemoveRange(oldDetails);
+                    _dbContext.OfferEvaluations.RemoveRange(oldEvaluations);
+                }
+
+                var oldFinancialOffers = await _dbContext.VendorOffers
+                    .Where(v => v.TenderId == tenderId && v.CompanyName == vendor)
+                    .ToListAsync(cancellationToken);
+
+                if (oldFinancialOffers.Any())
+                {
+                    _dbContext.VendorOffers.RemoveRange(oldFinancialOffers);
+                }
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                    
                 var evaluation = new OfferEvaluation
                 {
                     TenderId = tenderId,
@@ -95,7 +119,7 @@ namespace MediTender.API.Services
                                     }
                                 }
 
-                                var reqsJson = JsonSerializer.Serialize(requirements.Select(r => new { r.RequirementText, r.IsMandatory }));
+                                var reqsJson = JsonSerializer.Serialize(requirements.Select(r => new { r.Id, r.RequirementText, r.IsMandatory }));
 
                                 var prompt = $@"
                                 You are a Biomedical Procurement Expert. Evaluate the following JSON list of requirements against the provided document context from vendor '{vendor}'.
@@ -107,7 +131,7 @@ namespace MediTender.API.Services
                                 '{contextBuilder}'
 
                                 Return ONLY a valid JSON array of objects. Each object must exactly match a requirement and have the following keys:
-                                - ""RequirementText"": string (exact match from the provided list)
+                                - ""Id"": integer (MUST exactly match the Id from the provided list)
                                 - ""Status"": string (MUST BE EXACTLY ONE OF: ""Met"", ""Partially Met"", ""Not Met"", or ""Not Mentioned"". If there is no evidence or the context does not specify, use ""Not Mentioned"")
                                 - ""Evidence"": Exact quote from the context supporting the status. If no context exists, return ""No evidence found.""
                                 - ""Score"": integer from 0 to 10.
@@ -133,11 +157,9 @@ namespace MediTender.API.Services
                                         {
                                             foreach (var item in parsedArray.EnumerateArray())
                                             {
-                                                if (item.TryGetProperty("RequirementText", out var reqTextProp))
+                                                if (item.TryGetProperty("Id", out var idProp) && idProp.ValueKind == JsonValueKind.Number)
                                                 {
-                                                    string aiReqText = reqTextProp.GetString() ?? "";
-                                                    
-                                                    if (string.Equals(aiReqText.Trim(), req.RequirementText.Trim(), StringComparison.OrdinalIgnoreCase))
+                                                    if (idProp.GetInt32() == req.Id) // مطابقة بالرقم مباشرة
                                                     {
                                                         aiDetail = item;
                                                         matchFound = true;
