@@ -13,9 +13,7 @@ namespace MediTender.API.Services
     {
         private readonly ILogger<ComparisonService> _logger;
         private readonly QdrantClient _qdrantClient;
-        private readonly ApplicationDbContext _dbContext;
         private readonly IGeminiService _geminiService;
-        private readonly IFinancialEvaluationService _financialService; 
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly string _collectionName = "meditender_collection_v2";
 

@@ -31,7 +31,7 @@ namespace MediTender.API.Services
             var searchResults = await _qdrantClient.SearchAsync(
                 collectionName: _collectionName,
                 vector: searchVector,
-                limit: 5);
+                limit: 100);
 
             var contextBuilder = new StringBuilder();
             foreach (var result in searchResults)
