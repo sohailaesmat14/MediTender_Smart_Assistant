@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MediTender.API.Services;
 using MediTender.API.Data;
 using MediTender.API.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace MediTender.API.Controllers
 {

@@ -20,12 +20,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
+    options.AddPolicy("StrictCorsPolicy",
         policy =>
         {
-            policy.AllowAnyOrigin()
+            policy.WithOrigins(allowedOrigins ?? Array.Empty<string>())
                   .AllowAnyMethod()
                   .AllowAnyHeader();
         });
@@ -111,7 +113,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseCors("AllowAll");
+app.UseCors("StrictCorsPolicy");
 
 app.UseAuthentication(); 
 app.UseAuthorization();  
