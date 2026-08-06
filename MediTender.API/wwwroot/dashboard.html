@@ -1,316 +1,644 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" dir="ltr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediProcure AI - BI Decision Matrix</title>
-    <script src="https://cdn.jsdelivr.net/gh/linways/table-to-excel@1.0.4/dist/tableToExcel.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f1f5f9; color: #333; }
-        header { background-color: #0f172a; color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; }
-        .logo span { color: #10b981; }
-        #dashboardContent {background-color: #ffffff;}
-        .container { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
-        
-        /* Executive Summary & Badges */
-        .summary-card { background: linear-gradient(135deg, #1e293b, #334155); color: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .summary-card h2 { margin-top: 0; color: #38bdf8; }
-        .summary-text { font-size: 16px; line-height: 1.6; }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MediProcure AI - BI Decision Matrix</title>
+        <script src="https://cdn.jsdelivr.net/gh/linways/table-to-excel@1.0.4/dist/tableToExcel.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                background-color: #f1f5f9;
+                color: #333;
+            }
+            header {
+                background-color: #0f172a;
+                color: white;
+                padding: 15px 40px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .logo span {
+                color: #10b981;
+            }
+            #dashboardContent {
+                background-color: #ffffff;
+            }
+            .container {
+                max-width: 1400px;
+                margin: 30px auto;
+                padding: 0 20px;
+            }
 
-        /* BI Insights Grid */
-        .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .insight-box { background: white; padding: 20px; border-radius: 10px; border-top: 4px solid #3b82f6; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .insight-box h3 { margin-top: 0; font-size: 16px; color: #475569; }
-        .insight-value { font-size: 24px; font-weight: bold; color: #1e293b; margin: 10px 0; }
-        .insight-desc { font-size: 13px; color: #64748b; }
-        
-        .box-warning { border-top-color: #f59e0b; }
-        .box-danger { border-top-color: #ef4444; }
-        .box-success { border-top-color: #10b981; }
+            /* Executive Summary & Badges */
+            .summary-card {
+                background: linear-gradient(135deg, #1e293b, #334155);
+                color: white;
+                padding: 25px;
+                border-radius: 12px;
+                margin-bottom: 25px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .summary-card h2 {
+                margin-top: 0;
+                color: #38bdf8;
+            }
+            .summary-text {
+                font-size: 16px;
+                line-height: 1.6;
+            }
 
-        /* Matrix Table */
-        .matrix-container { background: white; padding: 25px; border-radius: 12px; overflow-x: auto; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-        th { background-color: #f8fafc; font-weight: bold; color: #1e293b; position: sticky; top: 0; }
-        .req-col { width: 30%; font-weight: bold; color: #334155; }
-        
-        .status-met { color: #059669; font-weight: bold; background: #d1fae5; padding: 2px 6px; border-radius: 4px; font-size: 12px;}
-        .status-partial { color: #d97706; font-weight: bold; background: #fef3c7; padding: 2px 6px; border-radius: 4px; font-size: 12px;}
-        .status-notmet { color: #dc2626; font-weight: bold; background: #fee2e2; padding: 2px 6px; border-radius: 4px; font-size: 12px;}
-        
-        .price-tag { font-size: 18px; font-weight: bold; color: #047857; }
-        .outlier-tag { background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px; }
-        .status-missing { color: #6b7280; font-weight: bold; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 12px;}
-        tr, .charts-container, .summary-card, .insights-grid {page-break-inside: avoid !important;}
-        .req-col { width: 30%; min-width: 250px; font-weight: bold; color: #334155; position: sticky; left: 0; background-color: #f8fafc; z-index: 10; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
-        th.req-col { z-index: 11; } 
+            /* BI Insights Grid */
+            .insights-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }
+            .insight-box {
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                border-top: 4px solid #3b82f6;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            }
+            .insight-box h3 {
+                margin-top: 0;
+                font-size: 16px;
+                color: #475569;
+            }
+            .insight-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #1e293b;
+                margin: 10px 0;
+            }
+            .insight-desc {
+                font-size: 13px;
+                color: #64748b;
+            }
 
-        .evidence-tooltip { cursor: help; margin-left: 5px; font-size: 14px; position: relative; display: inline-block; }
-        .evidence-tooltip:hover::after {
-            content: attr(data-evidence);
-            position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
-            background: #1e293b; color: white; padding: 10px; border-radius: 6px; font-size: 12px;
-            white-space: pre-wrap; width: max-content; max-width: 300px; z-index: 20;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            pointer-events: none;
-        }
+            .box-warning {
+                border-top-color: #f59e0b;
+            }
+            .box-danger {
+                border-top-color: #ef4444;
+            }
+            .box-success {
+                border-top-color: #10b981;
+            }
 
-        .dashboard-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.7); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
-        .dashboard-modal-content { background: white; padding: 25px; border-radius: 12px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .dashboard-modal-actions { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
-        .btn-cancel { background: #e2e8f0; color: #475569; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-confirm { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+            /* Matrix Table */
+            .matrix-container {
+                background: white;
+                padding: 25px;
+                border-radius: 12px;
+                overflow-x: auto;
+                margin-bottom: 30px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 14px;
+            }
+            th,
+            td {
+                border: 1px solid #e2e8f0;
+                padding: 12px;
+                text-align: left;
+            }
+            th {
+                background-color: #f8fafc;
+                font-weight: bold;
+                color: #1e293b;
+                position: sticky;
+                top: 0;
+            }
+            .req-col {
+                width: 30%;
+                font-weight: bold;
+                color: #334155;
+            }
 
-        @media (max-width: 768px) {
-            .dashboard-controls { flex-direction: column; align-items: stretch !important; }
-            .dashboard-controls input, .dashboard-controls select { width: 100%; margin-bottom: 10px; }
-            .dashboard-controls div { display: flex; flex-direction: column; width: 100%; gap: 10px; }
-            .dashboard-controls button { width: 100%; }
-            table { font-size: 12px; }
-            .req-col { min-width: 150px; }
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="logo">MediProcure <span>BI Analytics</span> 📊</div>
-    </header>
-    <div class="dashboard-modal-overlay" id="confirmModal">
-        <div class="dashboard-modal-content">
-            <h3 style="margin-top: 0; color: #1e293b;">Confirm Manual Approval</h3>
-            <p id="confirmModalText" style="color: #475569; font-size: 14px; line-height: 1.5;"></p>
-            <div class="dashboard-modal-actions">
-                <button class="btn-cancel" onclick="document.getElementById('confirmModal').style.display='none'">Cancel</button>
-                <button class="btn-confirm" id="confirmModalBtn">Yes, Approve</button>
+            .status-met {
+                color: #059669;
+                font-weight: bold;
+                background: #d1fae5;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            .status-partial {
+                color: #d97706;
+                font-weight: bold;
+                background: #fef3c7;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            .status-notmet {
+                color: #dc2626;
+                font-weight: bold;
+                background: #fee2e2;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+
+            .price-tag {
+                font-size: 18px;
+                font-weight: bold;
+                color: #047857;
+            }
+            .outlier-tag {
+                background: #ef4444;
+                color: white;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 11px;
+                margin-left: 5px;
+            }
+            .status-missing {
+                color: #6b7280;
+                font-weight: bold;
+                background: #f3f4f6;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            tr,
+            .charts-container,
+            .summary-card,
+            .insights-grid {
+                page-break-inside: avoid !important;
+            }
+            .req-col {
+                width: 30%;
+                min-width: 250px;
+                font-weight: bold;
+                color: #334155;
+                position: sticky;
+                left: 0;
+                background-color: #f8fafc;
+                z-index: 10;
+                box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+            }
+            th.req-col {
+                z-index: 11;
+            }
+
+            .evidence-tooltip {
+                cursor: help;
+                margin-left: 5px;
+                font-size: 14px;
+                position: relative;
+                display: inline-block;
+            }
+            .evidence-tooltip:hover::after {
+                content: attr(data-evidence);
+                position: absolute;
+                bottom: 120%;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #1e293b;
+                color: white;
+                padding: 10px;
+                border-radius: 6px;
+                font-size: 12px;
+                white-space: pre-wrap;
+                width: max-content;
+                max-width: 300px;
+                z-index: 20;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                pointer-events: none;
+            }
+
+            .dashboard-modal-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(17, 24, 39, 0.7);
+                z-index: 1000;
+                justify-content: center;
+                align-items: center;
+                backdrop-filter: blur(4px);
+            }
+            .dashboard-modal-content {
+                background: white;
+                padding: 25px;
+                border-radius: 12px;
+                max-width: 400px;
+                width: 90%;
+                text-align: center;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            }
+            .dashboard-modal-actions {
+                display: flex;
+                justify-content: center;
+                gap: 15px;
+                margin-top: 20px;
+            }
+            .btn-cancel {
+                background: #e2e8f0;
+                color: #475569;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+            .btn-confirm {
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+
+            @media (max-width: 768px) {
+                .dashboard-controls {
+                    flex-direction: column;
+                    align-items: stretch !important;
+                }
+                .dashboard-controls input,
+                .dashboard-controls select {
+                    width: 100%;
+                    margin-bottom: 10px;
+                }
+                .dashboard-controls div {
+                    display: flex;
+                    flex-direction: column;
+                    width: 100%;
+                    gap: 10px;
+                }
+                .dashboard-controls button {
+                    width: 100%;
+                }
+                table {
+                    font-size: 12px;
+                }
+                .req-col {
+                    min-width: 150px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="logo">MediProcure <span>BI Analytics</span> 📊</div>
+        </header>
+        <div class="dashboard-modal-overlay" id="confirmModal">
+            <div class="dashboard-modal-content">
+                <h3 style="margin-top: 0; color: #1e293b">
+                    Confirm Manual Approval
+                </h3>
+                <p
+                    id="confirmModalText"
+                    style="color: #475569; font-size: 14px; line-height: 1.5"
+                ></p>
+                <div class="dashboard-modal-actions">
+                    <button
+                        class="btn-cancel"
+                        onclick="
+                            document.getElementById(
+                                'confirmModal',
+                            ).style.display = 'none'
+                        "
+                    >
+                        Cancel
+                    </button>
+                    <button class="btn-confirm" id="confirmModalBtn">
+                        Yes, Approve
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="container" id="dashboardContent">
-        <!-- Data will be injected here by JS -->
-    </div>
+        <div class="container" id="dashboardContent">
+            <!-- Data will be injected here by JS -->
+        </div>
 
-    <script>
-        if (!sessionStorage.getItem("jwt_token")) {
-            window.location.replace("login.html");
-        }
-        let globalEvaluations = []; 
-
-        function escapeHTML(str) {
-            if (!str) return '';
-            return str.toString()
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-
-        function escapeForJS(str) {
-            if (!str) return '';
-            return str.toString()
-                .replace(/\\/g, '\\\\')
-                .replace(/'/g, "\\'")
-                .replace(/"/g, '&quot;')
-                .replace(/\n/g, '\\n')
-                .replace(/\r/g, '\\r');
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            const rawData = sessionStorage.getItem('meditender_evaluations');
-            if (!rawData) {
-                document.getElementById('dashboardContent').innerHTML = "<h2 style='text-align:center; color:red;'>No data found. Please run the analysis first.</h2>";
-                return;
+        <script>
+            if (!sessionStorage.getItem("jwt_token")) {
+                window.location.replace("login.html");
             }
-            
-            try {
-                globalEvaluations = JSON.parse(rawData);
-                generateBIDashboard();
-                
-                setTimeout(populateVendorFilter, 500);
-                
-            } catch (e) {
-                document.getElementById('dashboardContent').innerHTML = "<h2 style='text-align:center; color:red;'>Data Error. Please re-run the analysis.</h2>";
-            }
-        });
+            let globalEvaluations = [];
 
-        window.overrideItem = async function(vendorName, reqText) {
-            const token = sessionStorage.getItem("jwt_token");
-            if (!confirm("Are you sure you want to manually approve this requirement? This action will be permanently saved to the database.")) {
-                return;
+            function escapeHTML(str) {
+                if (!str) return "";
+                return str
+                    .toString()
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#39;");
             }
 
-            let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
-            if (!vendor) return;
+            function escapeForJS(str) {
+                if (!str) return "";
+                return str
+                    .toString()
+                    .replace(/\\/g, "\\\\")
+                    .replace(/'/g, "\\'")
+                    .replace(/"/g, "&quot;")
+                    .replace(/\n/g, "\\n")
+                    .replace(/\r/g, "\\r");
+            }
 
-            try {
-                const response = await fetch('http://localhost:5172/api/Document/override-evaluation', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        tenderId: vendor.tenderId,
-                        vendorName: vendorName,
-                        requirement: reqText
-                    })
-                });
-
-                if (!response.ok) {
-                    let errorMsg = await response.text();
-                    throw new Error(errorMsg);
+            document.addEventListener("DOMContentLoaded", () => {
+                const rawData = sessionStorage.getItem(
+                    "meditender_evaluations",
+                );
+                if (!rawData) {
+                    document.getElementById("dashboardContent").innerHTML =
+                        "<h2 style='text-align:center; color:red;'>No data found. Please run the analysis first.</h2>";
+                    return;
                 }
 
-                let detail = vendor.details.find(d => d.requirement === reqText);
-                if (detail) {
-                    detail.status = "Met";
-                    detail.evidence = "✅ Manually verified by committee.";
-                    detail.score = detail.isMandatory ? 20 : 10;
-                    
-                    vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
-                    
-                    let hasFailedMandatory = vendor.details.some(d => d.isMandatory && (d.status === "Not Met" || d.status === "Error"));
-                    let hasPartialOrMissing = vendor.details.some(d => d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned"));
-                    
-                    if (hasFailedMandatory) {
-                        vendor.finalDecision = "Recommended for Rejection";
-                    } else if (hasPartialOrMissing) {
-                        vendor.finalDecision = "Pending Manual Review";
-                    } else {
-                        vendor.finalDecision = "Recommended for Acceptance";
-                    }
-                    
-                    sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
+                try {
+                    globalEvaluations = JSON.parse(rawData);
                     generateBIDashboard();
-                    
-                    alert("Requirement successfully overridden and saved to the database!");
+
+                    setTimeout(populateVendorFilter, 500);
+                } catch (e) {
+                    document.getElementById("dashboardContent").innerHTML =
+                        "<h2 style='text-align:center; color:red;'>Data Error. Please re-run the analysis.</h2>";
                 }
-            } catch (err) {
-                alert("Failed to save override to database: " + err.message);
-            }
-        };
-
-        window.overrideDecision = async function(vendorName) {
-            const token = sessionStorage.getItem("jwt_token");
-            if (!confirm(`Are you sure you want to completely approve ALL pending requirements for ${vendorName}?`)) {
-                return;
-            }
-
-            let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
-            if (!vendor) return;
-
-            try {
-                // Send bulk approval to backend
-                const response = await fetch('http://localhost:5172/api/Document/override-vendor-decision', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ 
-                        tenderId: vendor.tenderId, 
-                        vendorName: vendorName 
-                    })
-                });
-
-                if (!response.ok) {
-                    let errorMsg = await response.text();
-                    throw new Error(errorMsg);
-                }
-
-                // Update local state if backend succeeds
-                vendor.details.forEach(d => {
-                    if (d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned")) {
-                        d.status = "Met";
-                        d.evidence = "✅ Vendor manually approved by committee.";
-                        d.score = 20;
-                    }
-                });
-
-                vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
-                vendor.finalDecision = "Recommended for Acceptance";
-                
-                sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
-                generateBIDashboard();
-                
-                alert(`Vendor ${vendorName} has been successfully approved!`);
-            } catch (err) {
-                alert("Failed to approve vendor: " + err.message);
-            }
-        };
-        function generateBIDashboard() {
-            const content = document.getElementById('dashboardContent');
-            
-            // --- 1. Data Preparation ---
-            const reqMap = {}; 
-            globalEvaluations[0].details.forEach(d => {
-                reqMap[d.requirement] = { text: d.requirement, isMandatory: d.isMandatory, vendorResults: {} };
             });
 
-            let acceptedVendors = [];
-            let allPrices = [];
-            
-            globalEvaluations.forEach(ev => {
-                if ((ev.finalDecision === "Recommended for Acceptance" || ev.finalDecision === "Pending Manual Review") && ev.totalPrice > 0) {
-                    acceptedVendors.push(ev);
+            window.overrideItem = async function (vendorName, reqText) {
+                const token = sessionStorage.getItem("jwt_token");
+                if (
+                    !confirm(
+                        "Are you sure you want to manually approve this requirement? This action will be permanently saved to the database.",
+                    )
+                ) {
+                    return;
                 }
-                if (ev.totalPrice > 0) allPrices.push(ev.totalPrice);
-                
-                ev.details.forEach(d => {
-                    reqMap[d.requirement].vendorResults[ev.vendorName] = d;
-                });
-            });
 
-            // --- 2. BI Calculations ---
-            // A. Value for Money (Best Price for Accepted ONLY)
-            let fullyAccepted = acceptedVendors.filter(v => v.finalDecision === "Recommended for Acceptance");
-            fullyAccepted.sort((a, b) => a.totalPrice - b.totalPrice);
-            const bestValueVendor = fullyAccepted.length > 0 ? fullyAccepted[0] : null;
-            
-            const avgPrice = allPrices.length > 0 ? allPrices.reduce((a,b) => a+b, 0) / allPrices.length : 0;
-            const outlierThreshold = avgPrice * 0.6; 
+                let vendor = globalEvaluations.find(
+                    (v) => v.vendorName === vendorName,
+                );
+                if (!vendor) return;
 
-            // B. Gap Analysis & Review Flags & Evidence Coverage
-            let gapCount = 0; 
-            let reviewFlagsCount = 0; 
-            let evidenceFound = 0;
-            let totalMandatory = 0;
+                try {
+                    const response = await fetch(
+                        "http://localhost:5172/api/Document/override-evaluation",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                tenderId: vendor.tenderId,
+                                vendorName: vendorName,
+                                requirement: reqText,
+                            }),
+                        },
+                    );
 
-            Object.values(reqMap).forEach(req => {
-                let allFailed = true;
-                if(req.isMandatory) totalMandatory++;
-
-                Object.values(req.vendorResults).forEach(vRes => {
-                    if (vRes.status === "Met" || vRes.status === "Partially Met") allFailed = false;
-                    
-                    if (req.isMandatory && (vRes.status === "Partially Met" || vRes.status === "Not Mentioned")) {
-                        reviewFlagsCount++;
+                    if (!response.ok) {
+                        let errorMsg = await response.text();
+                        throw new Error(errorMsg);
                     }
-                    if (req.isMandatory && vRes.evidence && !vRes.evidence.includes("No evidence found")) {
-                        evidenceFound++;
+
+                    let detail = vendor.details.find(
+                        (d) => d.requirement === reqText,
+                    );
+                    if (detail) {
+                        detail.status = "Met";
+                        detail.evidence = "✅ Manually verified by committee.";
+                        detail.score = detail.isMandatory ? 20 : 10;
+
+                        vendor.totalScore = vendor.details.reduce(
+                            (sum, d) => sum + d.score,
+                            0,
+                        );
+
+                        let hasFailedMandatory = vendor.details.some(
+                            (d) =>
+                                d.isMandatory &&
+                                (d.status === "Not Met" ||
+                                    d.status === "Error"),
+                        );
+                        let hasPartialOrMissing = vendor.details.some(
+                            (d) =>
+                                d.isMandatory &&
+                                (d.status === "Partially Met" ||
+                                    d.status === "Not Mentioned"),
+                        );
+
+                        if (hasFailedMandatory) {
+                            vendor.finalDecision = "Recommended for Rejection";
+                        } else if (hasPartialOrMissing) {
+                            vendor.finalDecision = "Pending Manual Review";
+                        } else {
+                            vendor.finalDecision = "Recommended for Acceptance";
+                        }
+
+                        sessionStorage.setItem(
+                            "meditender_evaluations",
+                            JSON.stringify(globalEvaluations),
+                        );
+                        generateBIDashboard();
+
+                        alert(
+                            "Requirement successfully overridden and saved to the database!",
+                        );
                     }
+                } catch (err) {
+                    alert(
+                        "Failed to save override to database: " + err.message,
+                    );
+                }
+            };
+
+            window.overrideDecision = async function (vendorName) {
+                const token = sessionStorage.getItem("jwt_token");
+                if (
+                    !confirm(
+                        `Are you sure you want to completely approve ALL pending requirements for ${vendorName}?`,
+                    )
+                ) {
+                    return;
+                }
+
+                let vendor = globalEvaluations.find(
+                    (v) => v.vendorName === vendorName,
+                );
+                if (!vendor) return;
+
+                try {
+                    // Send bulk approval to backend
+                    const response = await fetch(
+                        "http://localhost:5172/api/Document/override-vendor-decision",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                tenderId: vendor.tenderId,
+                                vendorName: vendorName,
+                            }),
+                        },
+                    );
+
+                    if (!response.ok) {
+                        let errorMsg = await response.text();
+                        throw new Error(errorMsg);
+                    }
+
+                    // Update local state if backend succeeds
+                    vendor.details.forEach((d) => {
+                        if (
+                            d.isMandatory &&
+                            (d.status === "Partially Met" ||
+                                d.status === "Not Mentioned")
+                        ) {
+                            d.status = "Met";
+                            d.evidence =
+                                "✅ Vendor manually approved by committee.";
+                            d.score = 20;
+                        }
+                    });
+
+                    vendor.totalScore = vendor.details.reduce(
+                        (sum, d) => sum + d.score,
+                        0,
+                    );
+                    vendor.finalDecision = "Recommended for Acceptance";
+
+                    sessionStorage.setItem(
+                        "meditender_evaluations",
+                        JSON.stringify(globalEvaluations),
+                    );
+                    generateBIDashboard();
+
+                    alert(
+                        `Vendor ${vendorName} has been successfully approved!`,
+                    );
+                } catch (err) {
+                    alert("Failed to approve vendor: " + err.message);
+                }
+            };
+            function generateBIDashboard() {
+                const content = document.getElementById("dashboardContent");
+
+                // --- 1. Data Preparation ---
+                const reqMap = {};
+                globalEvaluations[0].details.forEach((d) => {
+                    reqMap[d.requirement] = {
+                        text: d.requirement,
+                        isMandatory: d.isMandatory,
+                        vendorResults: {},
+                    };
                 });
-                if (allFailed) gapCount++;
-            });
-            
-            let coveragePercent = totalMandatory > 0 ? Math.round((evidenceFound / (totalMandatory * globalEvaluations.length)) * 100) : 0;
 
-            // --- 3. Executive Narrative ---
-            let narrative = `Based on the AI evaluation of ${globalEvaluations.length} vendors, `;
-            if (fullyAccepted.length > 0) {
-                narrative += `<strong>${fullyAccepted.length} vendors</strong> are currently recommended for acceptance. `;
-                narrative += `The most optimal "Value for Money" is offered by <strong>${escapeHTML(bestValueVendor.vendorName)}</strong> at <strong>${bestValueVendor.totalPrice.toLocaleString()} EGP</strong>. `;            } else {
-                narrative += `<strong>NO vendors</strong> are fully accepted yet. Some are pending manual review for missing administrative documents. `;
-            }
-            if (gapCount > 0) {
-                narrative += `Warning: There are ${gapCount} specific requirements where ALL vendors failed or missed data.`;
-            }
+                let acceptedVendors = [];
+                let allPrices = [];
 
-            // --- 4. Render HTML ---
-            let html = `
+                globalEvaluations.forEach((ev) => {
+                    if (
+                        (ev.finalDecision === "Recommended for Acceptance" ||
+                            ev.finalDecision === "Pending Manual Review") &&
+                        ev.totalPrice > 0
+                    ) {
+                        acceptedVendors.push(ev);
+                    }
+                    if (ev.totalPrice > 0) allPrices.push(ev.totalPrice);
+
+                    ev.details.forEach((d) => {
+                        reqMap[d.requirement].vendorResults[ev.vendorName] = d;
+                    });
+                });
+
+                // --- 2. BI Calculations ---
+                // A. Value for Money (Best Price for Accepted ONLY)
+                let fullyAccepted = acceptedVendors.filter(
+                    (v) => v.finalDecision === "Recommended for Acceptance",
+                );
+                fullyAccepted.sort((a, b) => a.totalPrice - b.totalPrice);
+                const bestValueVendor =
+                    fullyAccepted.length > 0 ? fullyAccepted[0] : null;
+
+                const avgPrice =
+                    allPrices.length > 0
+                        ? allPrices.reduce((a, b) => a + b, 0) /
+                          allPrices.length
+                        : 0;
+                const outlierThreshold = avgPrice * 0.6;
+
+                // B. Gap Analysis & Review Flags & Evidence Coverage
+                let gapCount = 0;
+                let reviewFlagsCount = 0;
+                let evidenceFound = 0;
+                let totalMandatory = 0;
+
+                Object.values(reqMap).forEach((req) => {
+                    let allFailed = true;
+                    if (req.isMandatory) totalMandatory++;
+
+                    Object.values(req.vendorResults).forEach((vRes) => {
+                        if (
+                            vRes.status === "Met" ||
+                            vRes.status === "Partially Met"
+                        )
+                            allFailed = false;
+
+                        if (
+                            req.isMandatory &&
+                            (vRes.status === "Partially Met" ||
+                                vRes.status === "Not Mentioned")
+                        ) {
+                            reviewFlagsCount++;
+                        }
+                        if (
+                            req.isMandatory &&
+                            vRes.evidence &&
+                            !vRes.evidence.includes("No evidence found")
+                        ) {
+                            evidenceFound++;
+                        }
+                    });
+                    if (allFailed) gapCount++;
+                });
+
+                let coveragePercent =
+                    totalMandatory > 0
+                        ? Math.round(
+                              (evidenceFound /
+                                  (totalMandatory * globalEvaluations.length)) *
+                                  100,
+                          )
+                        : 0;
+
+                // --- 3. Executive Narrative ---
+                let narrative = `Based on the AI evaluation of ${globalEvaluations.length} vendors, `;
+                if (fullyAccepted.length > 0) {
+                    narrative += `<strong>${fullyAccepted.length} vendors</strong> are currently recommended for acceptance. `;
+                    narrative += `The most optimal "Value for Money" is offered by <strong>${escapeHTML(bestValueVendor.vendorName)}</strong> at <strong>${bestValueVendor.totalPrice.toLocaleString()} EGP</strong>. `;
+                } else {
+                    narrative += `<strong>NO vendors</strong> are fully accepted yet. Some are pending manual review for missing administrative documents. `;
+                }
+                if (gapCount > 0) {
+                    narrative += `Warning: There are ${gapCount} specific requirements where ALL vendors failed or missed data.`;
+                }
+
+                // --- 4. Render HTML ---
+                let html = `
                 <div class="summary-card">
                     <h2>🤖 AI Executive Summary</h2>
                     <div class="summary-text">${narrative}</div>
@@ -319,8 +647,8 @@
                 <div class="insights-grid">
                     <div class="insight-box box-success">
                         <h3>🏆 Value for Money (Accepted Only)</h3>
-                        <div class="insight-value">${bestValueVendor ? bestValueVendor.totalPrice.toLocaleString() + ' EGP' : 'N/A'}</div>
-                        <div class="insight-desc">${bestValueVendor ? bestValueVendor.vendorName : 'Approve a vendor to see best price'}</div>
+                        <div class="insight-value">${bestValueVendor ? bestValueVendor.totalPrice.toLocaleString() + " EGP" : "N/A"}</div>
+                        <div class="insight-desc">${bestValueVendor ? escapeHTML(bestValueVendor.vendorName) : "Approve a vendor to see best price"}</div>
                     </div>
                     <div class="insight-box box-warning">
                         <h3>⚠️ Market Gap Analysis</h3>
@@ -389,467 +717,609 @@
                         <thead>
                             <tr>
                                 <th class="req-col">Requirement / Standard</th>
-                                ${globalEvaluations.map(ev => {
-                                    let isOutlier = (ev.totalPrice > 0 && ev.totalPrice < outlierThreshold) ? '<span class="outlier-tag">Abnormally Low</span>' : '';
-                                    
-                                    let actionBtn = ev.finalDecision === 'Pending Manual Review' ? 
-                                    `<button onclick="triggerVendorOverrideModal('${escapeForJS(ev.vendorName)}')" style="margin-top:8px; background:#2563eb; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; width:100%; font-weight:bold;">✅ Manual Override</button>` : '';
-                                    let statusColor = ev.finalDecision === 'Recommended for Acceptance' ? '#059669' : (ev.finalDecision.includes('Review') ? '#d97706' : '#dc2626');
-                                    return `<th>
+                                ${globalEvaluations
+                                    .map((ev) => {
+                                        let isOutlier =
+                                            ev.totalPrice > 0 &&
+                                            ev.totalPrice < outlierThreshold
+                                                ? '<span class="outlier-tag">Abnormally Low</span>'
+                                                : "";
+
+                                        let actionBtn =
+                                            ev.finalDecision ===
+                                            "Pending Manual Review"
+                                                ? `<button onclick="triggerVendorOverrideModal('${escapeForJS(ev.vendorName)}')" style="margin-top:8px; background:#2563eb; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; width:100%; font-weight:bold;">✅ Manual Override</button>`
+                                                : "";
+                                        let statusColor =
+                                            ev.finalDecision ===
+                                            "Recommended for Acceptance"
+                                                ? "#059669"
+                                                : ev.finalDecision.includes(
+                                                        "Review",
+                                                    )
+                                                  ? "#d97706"
+                                                  : "#dc2626";
+                                        return `<th>
                                     <div style="font-size: 16px;">${escapeHTML(ev.vendorName)}</div>
                                     <div style="font-size:12px; font-weight:bold; color: ${statusColor}; margin: 5px 0;">${ev.finalDecision}</div>
-                                    <div class="price-tag">${ev.totalPrice > 0 ? ev.totalPrice.toLocaleString() + ' EGP' : 'N/A'}</div>
+                                    <div class="price-tag">${ev.totalPrice > 0 ? ev.totalPrice.toLocaleString() + " EGP" : "N/A"}</div>
                                     ${isOutlier}
                                     ${actionBtn}
                                 </th>`;
-                                }).join('')}
+                                    })
+                                    .join("")}
                             </tr>
                         </thead>
                         <tbody>
-                            ${Object.values(reqMap).map(req => {
-                                return `
+                            ${Object.values(reqMap)
+                                .map((req) => {
+                                    return `
                                 <tr>
                                     <td class="req-col">
-                                        ${req.text} 
-                                        ${req.isMandatory ? '<span style="color:red; font-size:12px;">(Mandatory)</span>' : ''}
+                                        ${escapeHTML(req.text)} 
+                                        ${req.isMandatory ? '<span style="color:red; font-size:12px;">(Mandatory)</span>' : ""}
                                     </td>
-                                    ${globalEvaluations.map(ev => {
-                                        const res = req.vendorResults[ev.vendorName] || { status: 'Error', evidence: 'System Error: Data missing from AI response.', score: 0 };
-                                        let badgeClass = res.status === 'Met' ? 'status-met' : 
-                                                         (res.status === 'Partially Met' ? 'status-partial' : 
-                                                         (res.status === 'Not Mentioned' ? 'status-missing' : 'status-notmet'));
-                                        
-                                        let reviewFlag = (req.isMandatory && (res.status === 'Partially Met' || res.status === 'Not Mentioned')) ? '⚠️ Review' : '';
-                                        let maxScore = req.isMandatory ? 20 : 10;
-                                        let evidenceIcon = res.evidence && res.evidence !== "No evidence found." ? `<span class="evidence-tooltip" data-evidence="${escapeHTML(res.evidence)}">ℹ️</span>` : '';
-                                        return `<td style="position: relative;">
+                                    ${globalEvaluations
+                                        .map((ev) => {
+                                            const res = req.vendorResults[
+                                                ev.vendorName
+                                            ] || {
+                                                status: "Error",
+                                                evidence:
+                                                    "System Error: Data missing from AI response.",
+                                                score: 0,
+                                            };
+                                            let badgeClass =
+                                                res.status === "Met"
+                                                    ? "status-met"
+                                                    : res.status ===
+                                                        "Partially Met"
+                                                      ? "status-partial"
+                                                      : res.status ===
+                                                          "Not Mentioned"
+                                                        ? "status-missing"
+                                                        : "status-notmet";
+
+                                            let reviewFlag =
+                                                req.isMandatory &&
+                                                (res.status ===
+                                                    "Partially Met" ||
+                                                    res.status ===
+                                                        "Not Mentioned")
+                                                    ? "⚠️ Review"
+                                                    : "";
+                                            let maxScore = req.isMandatory
+                                                ? 20
+                                                : 10;
+                                            let evidenceIcon =
+                                                res.evidence &&
+                                                res.evidence !==
+                                                    "No evidence found."
+                                                    ? `<span class="evidence-tooltip" data-evidence="${escapeHTML(res.evidence)}">ℹ️</span>`
+                                                    : "";
+                                            return `<td style="position: relative;">
                                             <span class="${badgeClass}">${res.status}</span> ${evidenceIcon}
                                             <span style="font-size:11px; color:#d97706; font-weight:bold;">${reviewFlag}</span>
                                             <br><small style="color:#64748b;">Score: ${res.score}/${maxScore}</small>
                                             
-                                            ${(req.isMandatory && (res.status === 'Partially Met' || res.status === 'Not Mentioned')) ? 
-                                                `<button onclick="overrideItem('${escapeForJS(ev.vendorName)}', '${escapeForJS(req.text)}')" 
+                                            ${
+                                                req.isMandatory &&
+                                                (res.status ===
+                                                    "Partially Met" ||
+                                                    res.status ===
+                                                        "Not Mentioned")
+                                                    ? `<button onclick="overrideItem('${escapeForJS(ev.vendorName)}', '${escapeForJS(req.text)}')" 
                                                 style="margin-top: 5px; display: block; background: #3b82f6; color: white; border: none; border-radius: 3px; font-size: 10px; padding: 3px 6px; cursor: pointer;">
                                                 ✓ Approve Item
-                                                </button>` 
-                                            : ''}
+                                                </button>`
+                                                    : ""
+                                            }
                                         </td>`;
-                                    }).join('')}
+                                        })
+                                        .join("")}
                                 </tr>`;
-                            }).join('')}
+                                })
+                                .join("")}
                         </tbody>
                     </table>
                 </div>
             `;
-            content.innerHTML = html;
-            // Function to render the Total Score Bar Chart
-            function renderTotalScoreChart() {
-                const ctx = document.getElementById('totalScoreChart').getContext('2d');
-                
-                // Extract labels (Vendor Names) and data (Total Scores) from globalEvaluations
-                const vendorNames = globalEvaluations.map(ev => ev.vendorName);
-                const vendorScores = globalEvaluations.map(ev => ev.totalScore);
-                
-                // Define dynamic colors based on the final decision
-                const barColors = globalEvaluations.map(ev => {
-                    if (ev.finalDecision === "Recommended for Acceptance") return 'rgba(16, 185, 129, 0.7)'; // Green
-                    if (ev.finalDecision === "Pending Manual Review") return 'rgba(245, 158, 11, 0.7)'; // Yellow/Orange
-                    return 'rgba(239, 68, 68, 0.7)'; // Red
-                });
+                content.innerHTML = html;
+                // Function to render the Total Score Bar Chart
+                function renderTotalScoreChart() {
+                    const ctx = document
+                        .getElementById("totalScoreChart")
+                        .getContext("2d");
 
-                const borderColors = barColors.map(color => color.replace('0.7', '1'));
+                    // Extract labels (Vendor Names) and data (Total Scores) from globalEvaluations
+                    const vendorNames = globalEvaluations.map(
+                        (ev) => ev.vendorName,
+                    );
+                    const vendorScores = globalEvaluations.map(
+                        (ev) => ev.totalScore,
+                    );
 
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: vendorNames,
-                        datasets: [{
-                            label: 'Total Evaluation Score',
-                            data: vendorScores,
-                            backgroundColor: barColors,
-                            borderColor: borderColors,
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Score'
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: false // Hide legend since we only have one dataset
-                            }
-                        }
-                    }
-                });
-            }
-
-            // Function to render the Stacked Bar Chart for Status Distribution
-            function renderStatusDistributionChart() {
-                const ctx = document.getElementById('statusDistributionChart').getContext('2d');
-                
-                const vendorNames = globalEvaluations.map(ev => ev.vendorName);
-                
-                let metCounts = [];
-                let partialCounts = [];
-                let notMentionedCounts = [];
-                let notMetCounts = []; 
-                
-                globalEvaluations.forEach(ev => {
-                    let met = 0, partial = 0, notMentioned = 0, notMet = 0;
-                    
-                    ev.details.forEach(d => {
-                        if (d.status === 'Met') met++;
-                        else if (d.status === 'Partially Met') partial++;
-                        else if (d.status === 'Not Mentioned') notMentioned++;
-                        else notMet++; 
+                    // Define dynamic colors based on the final decision
+                    const barColors = globalEvaluations.map((ev) => {
+                        if (ev.finalDecision === "Recommended for Acceptance")
+                            return "rgba(16, 185, 129, 0.7)"; // Green
+                        if (ev.finalDecision === "Pending Manual Review")
+                            return "rgba(245, 158, 11, 0.7)"; // Yellow/Orange
+                        return "rgba(239, 68, 68, 0.7)"; // Red
                     });
-                    
-                    metCounts.push(met);
-                    partialCounts.push(partial);
-                    notMentionedCounts.push(notMentioned);
-                    notMetCounts.push(notMet);
-                });
 
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: vendorNames,
-                        datasets: [
-                            {
-                                label: 'Met',
-                                data: metCounts,
-                                backgroundColor: '#10b981' 
-                            },
-                            {
-                                label: 'Partially Met',
-                                data: partialCounts,
-                                backgroundColor: '#f59e0b'
-                            },
-                            {
-                                label: 'Not Mentioned ',
-                                data: notMentionedCounts,
-                                backgroundColor: '#94a3b8' 
-                            },
-                            {
-                                label: 'Not Met / Error ',
-                                data: notMetCounts,
-                                backgroundColor: '#ef4444' 
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            x: {
-                                stacked: true, 
-                            },
-                            y: {
-                                stacked: true,
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Number of Requirements'
-                                }
-                            }
-                        },
-                        plugins: {
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false
-                            },
-                            legend: {
-                                position: 'bottom'
-                            }
-                        }
-                    }
-                });
-            }
+                    const borderColors = barColors.map((color) =>
+                        color.replace("0.7", "1"),
+                    );
 
-            function renderScatterChart() {
-                const ctx = document.getElementById('valueForMoneyChart').getContext('2d');
-                
-                // Filter out vendors that do not have a financial offer yet (Price = 0 or N/A)
-                const scatterData = globalEvaluations
-                    .filter(ev => ev.totalPrice > 0)
-                    .map(ev => ({
-                        x: ev.totalPrice,
-                        y: ev.totalScore,
-                        vendorName: ev.vendorName,
-                        status: ev.finalDecision
-                    }));
-
-                if (scatterData.length === 0) return;
-
-                // Assign colors based on the technical evaluation status
-                const pointColors = scatterData.map(d => {
-                    if (d.status === "Recommended for Acceptance") return 'rgba(16, 185, 129, 0.8)'; // Green
-                    if (d.status === "Pending Manual Review") return 'rgba(245, 158, 11, 0.8)'; // Yellow
-                    return 'rgba(239, 68, 68, 0.8)'; // Red
-                });
-
-                new Chart(ctx, {
-                    type: 'scatter',
-                    data: {
-                        datasets: [{
-                            label: 'Vendors',
-                            data: scatterData,
-                            backgroundColor: pointColors,
-                            pointRadius: 10,
-                            pointHoverRadius: 12,
-                            borderColor: '#ffffff',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                title: { 
-                                    display: true, 
-                                    text: 'Total Financial Offer (EGP)',
-                                    font: { weight: 'bold' }
-                                }
-                            },
-                            y: {
-                                title: { 
-                                    display: true, 
-                                    text: 'Total Technical Score',
-                                    font: { weight: 'bold' }
+                    new Chart(ctx, {
+                        type: "bar",
+                        data: {
+                            labels: vendorNames,
+                            datasets: [
+                                {
+                                    label: "Total Evaluation Score",
+                                    data: vendorScores,
+                                    backgroundColor: barColors,
+                                    borderColor: borderColors,
+                                    borderWidth: 1,
                                 },
-                                beginAtZero: true
-                            }
+                            ],
                         },
-                        plugins: {
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const raw = context.raw;
-                                        return `${raw.vendorName} | Price: ${raw.x.toLocaleString()} EGP | Score: ${raw.y}`;
-                                    }
-                                }
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: "Score",
+                                    },
+                                },
                             },
-                            legend: {
-                                display: false 
-                            }
+                            plugins: {
+                                legend: {
+                                    display: false, // Hide legend since we only have one dataset
+                                },
+                            },
+                        },
+                    });
+                }
+
+                // Function to render the Stacked Bar Chart for Status Distribution
+                function renderStatusDistributionChart() {
+                    const ctx = document
+                        .getElementById("statusDistributionChart")
+                        .getContext("2d");
+
+                    const vendorNames = globalEvaluations.map(
+                        (ev) => ev.vendorName,
+                    );
+
+                    let metCounts = [];
+                    let partialCounts = [];
+                    let notMentionedCounts = [];
+                    let notMetCounts = [];
+
+                    globalEvaluations.forEach((ev) => {
+                        let met = 0,
+                            partial = 0,
+                            notMentioned = 0,
+                            notMet = 0;
+
+                        ev.details.forEach((d) => {
+                            if (d.status === "Met") met++;
+                            else if (d.status === "Partially Met") partial++;
+                            else if (d.status === "Not Mentioned")
+                                notMentioned++;
+                            else notMet++;
+                        });
+
+                        metCounts.push(met);
+                        partialCounts.push(partial);
+                        notMentionedCounts.push(notMentioned);
+                        notMetCounts.push(notMet);
+                    });
+
+                    new Chart(ctx, {
+                        type: "bar",
+                        data: {
+                            labels: vendorNames,
+                            datasets: [
+                                {
+                                    label: "Met",
+                                    data: metCounts,
+                                    backgroundColor: "#10b981",
+                                },
+                                {
+                                    label: "Partially Met",
+                                    data: partialCounts,
+                                    backgroundColor: "#f59e0b",
+                                },
+                                {
+                                    label: "Not Mentioned ",
+                                    data: notMentionedCounts,
+                                    backgroundColor: "#94a3b8",
+                                },
+                                {
+                                    label: "Not Met / Error ",
+                                    data: notMetCounts,
+                                    backgroundColor: "#ef4444",
+                                },
+                            ],
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: {
+                                    stacked: true,
+                                },
+                                y: {
+                                    stacked: true,
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: "Number of Requirements",
+                                    },
+                                },
+                            },
+                            plugins: {
+                                tooltip: {
+                                    mode: "index",
+                                    intersect: false,
+                                },
+                                legend: {
+                                    position: "bottom",
+                                },
+                            },
+                        },
+                    });
+                }
+
+                function renderScatterChart() {
+                    const ctx = document
+                        .getElementById("valueForMoneyChart")
+                        .getContext("2d");
+
+                    // Filter out vendors that do not have a financial offer yet (Price = 0 or N/A)
+                    const scatterData = globalEvaluations
+                        .filter((ev) => ev.totalPrice > 0)
+                        .map((ev) => ({
+                            x: ev.totalPrice,
+                            y: ev.totalScore,
+                            vendorName: ev.vendorName,
+                            status: ev.finalDecision,
+                        }));
+
+                    if (scatterData.length === 0) return;
+
+                    // Assign colors based on the technical evaluation status
+                    const pointColors = scatterData.map((d) => {
+                        if (d.status === "Recommended for Acceptance")
+                            return "rgba(16, 185, 129, 0.8)"; // Green
+                        if (d.status === "Pending Manual Review")
+                            return "rgba(245, 158, 11, 0.8)"; // Yellow
+                        return "rgba(239, 68, 68, 0.8)"; // Red
+                    });
+
+                    new Chart(ctx, {
+                        type: "scatter",
+                        data: {
+                            datasets: [
+                                {
+                                    label: "Vendors",
+                                    data: scatterData,
+                                    backgroundColor: pointColors,
+                                    pointRadius: 10,
+                                    pointHoverRadius: 12,
+                                    borderColor: "#ffffff",
+                                    borderWidth: 2,
+                                },
+                            ],
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: "Total Financial Offer (EGP)",
+                                        font: { weight: "bold" },
+                                    },
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: "Total Technical Score",
+                                        font: { weight: "bold" },
+                                    },
+                                    beginAtZero: true,
+                                },
+                            },
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            const raw = context.raw;
+                                            return `${raw.vendorName} | Price: ${raw.x.toLocaleString()} EGP | Score: ${raw.y}`;
+                                        },
+                                    },
+                                },
+                                legend: {
+                                    display: false,
+                                },
+                            },
+                        },
+                    });
+                }
+
+                renderScatterChart();
+                renderStatusDistributionChart();
+                renderTotalScoreChart();
+            }
+
+            window.triggerVendorOverrideModal = function (vendorName) {
+                const modal = document.getElementById("confirmModal");
+                document.getElementById("confirmModalText").innerHTML =
+                    `Are you sure you want to completely approve ALL pending requirements for vendor <strong>${escapeHTML(vendorName)}</strong>?<br><br><small style="color:red;">This bulk action will be permanently saved to the database.</small>`;
+
+                const confirmBtn = document.getElementById("confirmModalBtn");
+
+                confirmBtn.onclick = async function () {
+                    modal.style.display = "none";
+                    await overrideDecision(vendorName);
+                };
+
+                modal.style.display = "flex";
+            };
+
+            window.overrideDecision = async function (vendorName) {
+                const token = sessionStorage.getItem("jwt_token");
+                let vendor = globalEvaluations.find(
+                    (v) => v.vendorName === vendorName,
+                );
+                if (!vendor) return;
+
+                try {
+                    const response = await fetch(
+                        "http://localhost:5172/api/Document/override-vendor-decision",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                tenderId: vendor.tenderId,
+                                vendorName: vendorName,
+                            }),
+                        },
+                    );
+
+                    if (!response.ok) throw new Error(await response.text());
+
+                    vendor.details.forEach((d) => {
+                        if (
+                            d.isMandatory &&
+                            (d.status === "Partially Met" ||
+                                d.status === "Not Mentioned")
+                        ) {
+                            d.status = "Met";
+                            d.evidence =
+                                "✅ Vendor manually approved by committee.";
+                            d.score = 20;
+                        }
+                    });
+
+                    vendor.totalScore = vendor.details.reduce(
+                        (sum, d) => sum + d.score,
+                        0,
+                    );
+                    vendor.finalDecision = "Recommended for Acceptance";
+
+                    sessionStorage.setItem(
+                        "meditender_evaluations",
+                        JSON.stringify(globalEvaluations),
+                    );
+                    generateBIDashboard();
+                } catch (err) {
+                    alert("Failed to approve vendor: " + err.message);
+                }
+            };
+
+            function populateVendorFilter() {
+                const vendorSelect = document.getElementById("vendorFilter");
+                globalEvaluations.forEach((ev) => {
+                    let option = document.createElement("option");
+                    option.value = ev.vendorName;
+                    option.text = ev.vendorName;
+                    vendorSelect.appendChild(option);
+                });
+            }
+
+            window.triggerOverrideModal = function (vendorName, reqText) {
+                const modal = document.getElementById("confirmModal");
+                document.getElementById("confirmModalText").innerHTML =
+                    `Are you sure you want to manually approve the requirement:<br><br><strong>"${reqText}"</strong><br><br>for vendor <strong>${vendorName}</strong>? <br><br><small style="color:red;">This action will be permanently saved.</small>`;
+
+                const confirmBtn = document.getElementById("confirmModalBtn");
+
+                confirmBtn.onclick = async function () {
+                    modal.style.display = "none";
+                    await overrideItem(vendorName, reqText);
+                };
+
+                modal.style.display = "flex";
+            };
+
+            window.overrideItem = async function (vendorName, reqText) {
+                const token = sessionStorage.getItem("jwt_token");
+                let vendor = globalEvaluations.find(
+                    (v) => v.vendorName === vendorName,
+                );
+                if (!vendor) return;
+
+                try {
+                    const response = await fetch(
+                        "http://localhost:5172/api/Document/override-evaluation",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                tenderId: vendor.tenderId,
+                                vendorName: vendorName,
+                                requirement: reqText,
+                            }),
+                        },
+                    );
+
+                    if (!response.ok) throw new Error(await response.text());
+
+                    let detail = vendor.details.find(
+                        (d) => d.requirement === reqText,
+                    );
+                    if (detail) {
+                        detail.status = "Met";
+                        detail.evidence = "✅ Manually verified by committee.";
+                        detail.score = detail.isMandatory ? 20 : 10;
+
+                        vendor.totalScore = vendor.details.reduce(
+                            (sum, d) => sum + d.score,
+                            0,
+                        );
+
+                        let hasFailedMandatory = vendor.details.some(
+                            (d) =>
+                                d.isMandatory &&
+                                (d.status === "Not Met" ||
+                                    d.status === "Error"),
+                        );
+                        let hasPartialOrMissing = vendor.details.some(
+                            (d) =>
+                                d.isMandatory &&
+                                (d.status === "Partially Met" ||
+                                    d.status === "Not Mentioned"),
+                        );
+
+                        vendor.finalDecision = hasFailedMandatory
+                            ? "Recommended for Rejection"
+                            : hasPartialOrMissing
+                              ? "Pending Manual Review"
+                              : "Recommended for Acceptance";
+
+                        sessionStorage.setItem(
+                            "meditender_evaluations",
+                            JSON.stringify(globalEvaluations),
+                        );
+                        generateBIDashboard();
+                    }
+                } catch (err) {
+                    alert(
+                        "Failed to save override to database: " + err.message,
+                    );
+                }
+            };
+
+            function applyTableFilters() {
+                const searchText = document
+                    .getElementById("searchInput")
+                    .value.toLowerCase();
+                const statusVal = document.getElementById("statusFilter").value;
+                const vendorVal = document.getElementById("vendorFilter").value;
+                const mandatoryOnly =
+                    document.getElementById("mandatoryFilter").checked;
+
+                const tbody = document.querySelector(".matrix-container tbody");
+                const rows = tbody.querySelectorAll("tr");
+
+                rows.forEach((row) => {
+                    const reqText = row.cells[0].innerText.toLowerCase();
+                    const isMandatory =
+                        row.cells[0].innerText.includes("Mandatory");
+
+                    let showRow = true;
+
+                    if (searchText && !reqText.includes(searchText)) {
+                        showRow = false;
+                    }
+
+                    if (mandatoryOnly && !isMandatory) {
+                        showRow = false;
+                    }
+
+                    let hasMatchingStatus = false;
+
+                    for (let i = 1; i < row.cells.length; i++) {
+                        const cellText = row.cells[i].innerText;
+                        const currentVendor =
+                            globalEvaluations[i - 1].vendorName;
+
+                        if (
+                            vendorVal !== "All" &&
+                            currentVendor !== vendorVal
+                        ) {
+                            continue;
+                        }
+
+                        if (
+                            statusVal === "All" ||
+                            cellText.includes(statusVal)
+                        ) {
+                            hasMatchingStatus = true;
                         }
                     }
+
+                    if (statusVal !== "All" && !hasMatchingStatus) {
+                        showRow = false;
+                    }
+
+                    row.style.display = showRow ? "" : "none";
                 });
             }
 
-            renderScatterChart();
-            renderStatusDistributionChart();
-            renderTotalScoreChart();
-        }
-        
-        window.triggerVendorOverrideModal = function(vendorName) {
-            const modal = document.getElementById('confirmModal');
-            document.getElementById('confirmModalText').innerHTML = 
-                `Are you sure you want to completely approve ALL pending requirements for vendor <strong>${escapeHTML(vendorName)}</strong>?<br><br><small style="color:red;">This bulk action will be permanently saved to the database.</small>`;
-            
-            const confirmBtn = document.getElementById('confirmModalBtn');
-            
-            confirmBtn.onclick = async function() {
-                modal.style.display = 'none';
-                await overrideDecision(vendorName);
-            };
-            
-            modal.style.display = 'flex';
-        };
+            function exportToExcel() {
+                const table = document.querySelector(".matrix-container table");
 
-        window.overrideDecision = async function(vendorName) {
-            const token = sessionStorage.getItem("jwt_token");
-            let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
-            if (!vendor) return;
-
-            try {
-                const response = await fetch('http://localhost:5172/api/Document/override-vendor-decision', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                TableToExcel.convert(table, {
+                    name: "MediTender_Analysis_Report.xlsx",
+                    sheet: {
+                        name: "Technical Analysis",
                     },
-                    body: JSON.stringify({ 
-                        tenderId: vendor.tenderId, 
-                        vendorName: vendorName 
-                    })
                 });
-
-                if (!response.ok) throw new Error(await response.text());
-
-                vendor.details.forEach(d => {
-                    if (d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned")) {
-                        d.status = "Met";
-                        d.evidence = "✅ Vendor manually approved by committee.";
-                        d.score = 20;
-                    }
-                });
-
-                vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
-                vendor.finalDecision = "Recommended for Acceptance";
-                
-                sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
-                generateBIDashboard();
-                
-            } catch (err) {
-                alert("Failed to approve vendor: " + err.message);
             }
-        };
-        
-        function populateVendorFilter() {
-            const vendorSelect = document.getElementById('vendorFilter');
-            globalEvaluations.forEach(ev => {
-                let option = document.createElement('option');
-                option.value = ev.vendorName;
-                option.text = ev.vendorName;
-                vendorSelect.appendChild(option);
-            });
-        }
 
-        window.triggerOverrideModal = function(vendorName, reqText) {
-            const modal = document.getElementById('confirmModal');
-            document.getElementById('confirmModalText').innerHTML = 
-                `Are you sure you want to manually approve the requirement:<br><br><strong>"${reqText}"</strong><br><br>for vendor <strong>${vendorName}</strong>? <br><br><small style="color:red;">This action will be permanently saved.</small>`;
-            
-            const confirmBtn = document.getElementById('confirmModalBtn');
-            
-            confirmBtn.onclick = async function() {
-                modal.style.display = 'none';
-                await overrideItem(vendorName, reqText);
-            };
-            
-            modal.style.display = 'flex';
-        };
+            function exportToPDF() {
+                window.scrollTo(0, 0);
+                const element = document.querySelector("#dashboardContent");
 
-        window.overrideItem = async function(vendorName, reqText) {
-            const token = sessionStorage.getItem("jwt_token");
-            let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
-            if (!vendor) return;
+                const originalOverflow = element.style.overflow;
+                element.style.overflow = "visible";
 
-            try {
-                const response = await fetch('http://localhost:5172/api/Document/override-evaluation', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                const opt = {
+                    margin: 0.5,
+                    filename: "MediTender_Analysis_Report.pdf",
+                    image: { type: "jpeg", quality: 1 },
+                    html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                    jsPDF: {
+                        unit: "in",
+                        format: "a3",
+                        orientation: "landscape",
                     },
-                    body: JSON.stringify({
-                        tenderId: vendor.tenderId,
-                        vendorName: vendorName,
-                        requirement: reqText
-                    })
-                });
+                    pagebreak: { mode: ["css", "avoid-all"] },
+                };
 
-                if (!response.ok) throw new Error(await response.text());
-
-                let detail = vendor.details.find(d => d.requirement === reqText);
-                if (detail) {
-                    detail.status = "Met";
-                    detail.evidence = "✅ Manually verified by committee.";
-                    detail.score = detail.isMandatory ? 20 : 10;
-                    
-                    vendor.totalScore = vendor.details.reduce((sum, d) => sum + d.score, 0);
-                    
-                    let hasFailedMandatory = vendor.details.some(d => d.isMandatory && (d.status === "Not Met" || d.status === "Error"));
-                    let hasPartialOrMissing = vendor.details.some(d => d.isMandatory && (d.status === "Partially Met" || d.status === "Not Mentioned"));
-                    
-                    vendor.finalDecision = hasFailedMandatory ? "Recommended for Rejection" : 
-                                          (hasPartialOrMissing ? "Pending Manual Review" : "Recommended for Acceptance");
-                    
-                    sessionStorage.setItem('meditender_evaluations', JSON.stringify(globalEvaluations));
-                    generateBIDashboard();
-                }
-            } catch (err) {
-                alert("Failed to save override to database: " + err.message);
+                html2pdf()
+                    .set(opt)
+                    .from(element)
+                    .save()
+                    .then(() => {
+                        element.style.overflow = originalOverflow;
+                    });
             }
-        };
-
-        function applyTableFilters() {
-            const searchText = document.getElementById('searchInput').value.toLowerCase();
-            const statusVal = document.getElementById('statusFilter').value;
-            const vendorVal = document.getElementById('vendorFilter').value;
-            const mandatoryOnly = document.getElementById('mandatoryFilter').checked;
-
-            const tbody = document.querySelector('.matrix-container tbody');
-            const rows = tbody.querySelectorAll('tr');
-
-            rows.forEach(row => {
-                const reqText = row.cells[0].innerText.toLowerCase();
-                const isMandatory = row.cells[0].innerText.includes('Mandatory');
-                
-                let showRow = true;
-
-                if (searchText && !reqText.includes(searchText)) {
-                    showRow = false;
-                }
-
-                if (mandatoryOnly && !isMandatory) {
-                    showRow = false;
-                }
-
-                let hasMatchingStatus = false;
-                
-                for (let i = 1; i < row.cells.length; i++) {
-                    const cellText = row.cells[i].innerText;
-                    const currentVendor = globalEvaluations[i - 1].vendorName;
-
-                    if (vendorVal !== 'All' && currentVendor !== vendorVal) {
-                        continue; 
-                    }
-
-                    if (statusVal === 'All' || cellText.includes(statusVal)) {
-                        hasMatchingStatus = true;
-                    }
-                }
-
-                if (statusVal !== 'All' && !hasMatchingStatus) {
-                    showRow = false;
-                }
-
-                row.style.display = showRow ? '' : 'none';
-            });
-        }
-
-        function exportToExcel() {
-            const table = document.querySelector('.matrix-container table');
-            
-            TableToExcel.convert(table, {
-                name: "MediTender_Analysis_Report.xlsx",
-                sheet: {
-                    name: "Technical Analysis"
-                }
-            });
-        }
-
-        function exportToPDF() {
-            window.scrollTo(0, 0); 
-            const element = document.querySelector('#dashboardContent'); 
-            
-            const originalOverflow = element.style.overflow;
-            element.style.overflow = 'visible';
-
-            const opt = {
-                margin:       0.5,
-                filename:     'MediTender_Analysis_Report.pdf',
-                image:        { type: 'jpeg', quality: 1 },
-                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 }, 
-                jsPDF:        { unit: 'in', format: 'a3', orientation: 'landscape' },
-                pagebreak:    { mode: ['css', 'avoid-all'] } 
-            };
-
-            html2pdf().set(opt).from(element).save().then(() => {
-                element.style.overflow = originalOverflow;
-            });
-        }
-        
-    </script>
-</body>
+        </script>
+    </body>
 </html>

@@ -21,11 +21,12 @@ namespace MediTender.API.Services
             _googleApiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API Key is missing in appsettings.json!");
             _httpClient = httpClient;
             _logger = logger; 
+            _httpClient.DefaultRequestHeaders.Add("x-goog-api-key", _googleApiKey);
         }
 
         public async Task<string> GenerateChatResponseAsync(string prompt, CancellationToken cancellationToken = default)
         {
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_chatModel}:generateContent?key={_googleApiKey}";
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_chatModel}:generateContent";
             var payload = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
@@ -42,7 +43,7 @@ namespace MediTender.API.Services
 
         public async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
         {
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={_googleApiKey}";
+            var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent";
             var payload = new { model = "models/gemini-embedding-001", content = new { parts = new[] { new { text = text } } } };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
@@ -71,7 +72,7 @@ namespace MediTender.API.Services
                     requests = requests.Select(r => new { model = "models/gemini-embedding-001", content = new { parts = new[] { new { text = r.text } } } }) 
                 };
 
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={_googleApiKey}";
+                var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents";
                 var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
                 cancellationToken.ThrowIfCancellationRequested();

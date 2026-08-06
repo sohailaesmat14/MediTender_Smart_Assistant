@@ -16,17 +16,20 @@ namespace MediTender.API.Controllers
         private readonly ITextChunkingService _textChunkingService;
         private readonly IVectorStorageService _vectorStorageService;
         private readonly ApplicationDbContext _dbContext;
+        private readonly ILogger<DocumentController> _logger;
 
         public DocumentController(
             IPdfParsingService pdfParsingService, 
             ITextChunkingService textChunkingService, 
             IVectorStorageService vectorStorageService,
-            ApplicationDbContext dbContext)
+            ApplicationDbContext dbContext,
+            ILogger<DocumentController> logger)
         {
             _pdfParsingService = pdfParsingService;
             _textChunkingService = textChunkingService;
             _vectorStorageService = vectorStorageService;
             _dbContext = dbContext;
+            _logger = logger;
         }
 
         [HttpPost("upload-pdf")]
@@ -61,7 +64,9 @@ namespace MediTender.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error uploading PDF for DocumentType: {DocumentType}, Vendor: {VendorName}", request.DocumentType, request.VendorName);
+    
+    return StatusCode(500, new { Message = "An internal server error occurred while processing your request. Please try again later." });
             }
         }        
         [HttpPost("ask")]
@@ -77,7 +82,8 @@ namespace MediTender.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error processing Q&A request for Tender: {TenderId}, Vendor: {VendorName}", request.TenderId, request.VendorName);
+                return StatusCode(500, new { Message = "An internal server error occurred while answering the question. Please try again." });
             }
         }
 
@@ -124,7 +130,8 @@ namespace MediTender.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error during multi-vendor comparison for Tender: {TenderId}", request.TenderId);
+                return StatusCode(500, new { Message = "An internal server error occurred during vendor comparison. Please review the logs." });
             }
         }
         public class MultiComparisonRequest 
@@ -154,7 +161,8 @@ namespace MediTender.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error extracting standard requirements for Tender: {TenderId}, File: {FileName}", tenderId, fileName);
+                return StatusCode(500, new { Message = "An internal server error occurred while extracting requirements." });
             }
         }
         [HttpDelete("reset-system")]
@@ -186,7 +194,8 @@ namespace MediTender.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Reset failed: {ex.Message}");
+                _logger.LogError(ex, "Error during system reset operation.");
+                return StatusCode(500, new { Message = "An internal server error occurred while resetting the system." });
             }
         }
         public class FileUploadRequest
@@ -269,9 +278,10 @@ namespace MediTender.API.Controllers
 
                 return Ok(new { Message = "Override saved to database successfully" });
             }
-            catch (Exception ex)
+           catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error overriding evaluation for Tender: {TenderId}, Vendor: {VendorName}", request.TenderId, request.VendorName);
+                return StatusCode(500, new { Message = "An internal server error occurred while processing the evaluation override." });
             }
         }
 
@@ -315,9 +325,10 @@ namespace MediTender.API.Controllers
                 await _dbContext.SaveChangesAsync();
                 return Ok(new { Message = "Vendor completely approved and saved to database." });
             }
-            catch (Exception ex)
+           catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Error overriding vendor decision for Tender: {TenderId}, Vendor: {VendorName}", request.TenderId, request.VendorName);
+                return StatusCode(500, new { Message = "An internal server error occurred while processing the vendor decision override." });
             }
         }
 
