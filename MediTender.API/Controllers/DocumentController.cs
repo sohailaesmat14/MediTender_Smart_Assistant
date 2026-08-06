@@ -6,6 +6,7 @@ using MediTender.API.Models;
 
 namespace MediTender.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class DocumentController : ControllerBase

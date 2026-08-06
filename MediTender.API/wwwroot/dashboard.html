@@ -93,6 +93,9 @@
     </div>
 
     <script>
+        if (!sessionStorage.getItem("jwt_token")) {
+            window.location.replace("login.html");
+        }
         let globalEvaluations = []; 
 
         function escapeHTML(str) {
@@ -134,6 +137,7 @@
         });
 
         window.overrideItem = async function(vendorName, reqText) {
+            const token = sessionStorage.getItem("jwt_token");
             if (!confirm("Are you sure you want to manually approve this requirement? This action will be permanently saved to the database.")) {
                 return;
             }
@@ -144,7 +148,10 @@
             try {
                 const response = await fetch('http://localhost:5172/api/Document/override-evaluation', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({
                         tenderId: vendor.tenderId,
                         vendorName: vendorName,
@@ -187,6 +194,7 @@
         };
 
         window.overrideDecision = async function(vendorName) {
+            const token = sessionStorage.getItem("jwt_token");
             if (!confirm(`Are you sure you want to completely approve ALL pending requirements for ${vendorName}?`)) {
                 return;
             }
@@ -198,7 +206,10 @@
                 // Send bulk approval to backend
                 const response = await fetch('http://localhost:5172/api/Document/override-vendor-decision', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ 
                         tenderId: vendor.tenderId, 
                         vendorName: vendorName 
@@ -655,13 +666,17 @@
         };
 
         window.overrideDecision = async function(vendorName) {
+            const token = sessionStorage.getItem("jwt_token");
             let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
             if (!vendor) return;
 
             try {
                 const response = await fetch('http://localhost:5172/api/Document/override-vendor-decision', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ 
                         tenderId: vendor.tenderId, 
                         vendorName: vendorName 
@@ -715,13 +730,17 @@
         };
 
         window.overrideItem = async function(vendorName, reqText) {
+            const token = sessionStorage.getItem("jwt_token");
             let vendor = globalEvaluations.find(v => v.vendorName === vendorName);
             if (!vendor) return;
 
             try {
                 const response = await fetch('http://localhost:5172/api/Document/override-evaluation', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({
                         tenderId: vendor.tenderId,
                         vendorName: vendorName,

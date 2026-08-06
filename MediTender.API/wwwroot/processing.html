@@ -1,158 +1,334 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" dir="ltr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediProcure AI - Processing</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f8fafc; color: #333; height: 100vh; display: flex; flex-direction: column; }
-        header { background-color: #111827; color: white; padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; }
-        .header-left { display: flex; align-items: center; gap: 20px; }
-        .user-profile { display: flex; align-items: center; gap: 10px; }
-        .avatar { background-color: #0ea5e9; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; }
-        .user-details { line-height: 1.2; }
-        .user-details strong { font-size: 14px; }
-        .user-details small { font-size: 12px; color: #9ca3af; }
-        .hospital-badge { background-color: #374151; padding: 8px 15px; border-radius: 20px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-        .logo { font-size: 20px; font-weight: bold; }
-        .logo span { color: #10b981; }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MediProcure AI - Processing</title>
+        <style>
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                background-color: #f8fafc;
+                color: #333;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+            header {
+                background-color: #111827;
+                color: white;
+                padding: 15px 40px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .header-left {
+                display: flex;
+                align-items: center;
+                gap: 20px;
+            }
+            .user-profile {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .avatar {
+                background-color: #0ea5e9;
+                color: white;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-weight: bold;
+            }
+            .user-details {
+                line-height: 1.2;
+            }
+            .user-details strong {
+                font-size: 14px;
+            }
+            .user-details small {
+                font-size: 12px;
+                color: #9ca3af;
+            }
+            .hospital-badge {
+                background-color: #374151;
+                padding: 8px 15px;
+                border-radius: 20px;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .logo {
+                font-size: 20px;
+                font-weight: bold;
+            }
+            .logo span {
+                color: #10b981;
+            }
 
-        .loading-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        .spinner-wrapper { position: relative; width: 100px; height: 100px; margin-bottom: 30px; }
-        .spinner { width: 100%; height: 100%; border: 4px solid #e2e8f0; border-top-color: #10b981; border-radius: 50%; animation: spin 1.5s linear infinite; box-sizing: border-box; }
-        .brain-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        h2 { font-size: 32px; color: #1e293b; margin-bottom: 10px; }
-        p { font-size: 18px; color: #64748b; font-weight: bold; }
-        /* Progress Bar Styles */
-        .progress-wrapper { width: 80%; max-width: 500px; margin: 20px auto; background: #e2e8f0; border-radius: 10px; overflow: hidden; height: 22px; display: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
-        .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; color: white; font-size: 12px; font-weight: bold; box-sizing: border-box;}
-        
-        /* Retry Button Styles */
-        .retry-btn { margin-top: 25px; padding: 12px 25px; background-color: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; display: none; transition: 0.3s; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3); }
-        .retry-btn:hover { background-color: #dc2626; transform: translateY(-2px); }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="header-left">
-            <div class="user-profile">
-                <div class="avatar">SE</div>
-                <div class="user-details"><strong>Eng. Suhaila</strong><br><small>Biomedical Tendering</small></div>
+            .loading-container {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+            }
+            .spinner-wrapper {
+                position: relative;
+                width: 100px;
+                height: 100px;
+                margin-bottom: 30px;
+            }
+            .spinner {
+                width: 100%;
+                height: 100%;
+                border: 4px solid #e2e8f0;
+                border-top-color: #10b981;
+                border-radius: 50%;
+                animation: spin 1.5s linear infinite;
+                box-sizing: border-box;
+            }
+            .brain-icon {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 40px;
+            }
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+            h2 {
+                font-size: 32px;
+                color: #1e293b;
+                margin-bottom: 10px;
+            }
+            p {
+                font-size: 18px;
+                color: #64748b;
+                font-weight: bold;
+            }
+            /* Progress Bar Styles */
+            .progress-wrapper {
+                width: 80%;
+                max-width: 500px;
+                margin: 20px auto;
+                background: #e2e8f0;
+                border-radius: 10px;
+                overflow: hidden;
+                height: 22px;
+                display: none;
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .progress-fill {
+                width: 0%;
+                height: 100%;
+                background: linear-gradient(90deg, #3b82f6, #10b981);
+                transition: width 0.5s ease;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                padding-right: 10px;
+                color: white;
+                font-size: 12px;
+                font-weight: bold;
+                box-sizing: border-box;
+            }
+
+            /* Retry Button Styles */
+            .retry-btn {
+                margin-top: 25px;
+                padding: 12px 25px;
+                background-color: #ef4444;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                display: none;
+                transition: 0.3s;
+                box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+            }
+            .retry-btn:hover {
+                background-color: #dc2626;
+                transform: translateY(-2px);
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="header-left">
+                <div class="user-profile">
+                    <div class="avatar">SE</div>
+                    <div class="user-details">
+                        <strong>Eng. Suhaila</strong><br /><small
+                            >Biomedical Tendering</small
+                        >
+                    </div>
+                </div>
+                <div class="hospital-badge">🏥 Hospital</div>
             </div>
-            <div class="hospital-badge">🏥 Hospital</div>
+            <div class="logo">MediProcure <span>AI</span> 🤖</div>
+        </header>
+
+        <div class="loading-container">
+            <div class="spinner-wrapper" id="spinnerWrapper">
+                <div class="spinner"></div>
+                <div class="brain-icon">🧠</div>
+            </div>
+            <h2 id="mainTitle">AI Engine is Working...</h2>
+            <p id="processStatus">Initializing RAG extraction pipeline...</p>
+
+            <div class="progress-wrapper" id="progressWrapper">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+
+            <button
+                class="retry-btn"
+                id="retryBtn"
+                onclick="window.location.replace('upload.html')"
+            >
+                🔄 Go Back & Retry
+            </button>
         </div>
-        <div class="logo">MediProcure <span>AI</span> 🤖</div>
-    </header>
 
-    <div class="loading-container">
-        <div class="spinner-wrapper" id="spinnerWrapper">
-            <div class="spinner"></div>
-            <div class="brain-icon">🧠</div>
-        </div>
-        <h2 id="mainTitle">AI Engine is Working...</h2>
-        <p id="processStatus">Initializing RAG extraction pipeline...</p>
-        
-        <div class="progress-wrapper" id="progressWrapper">
-            <div class="progress-fill" id="progressFill">0%</div>
-        </div>
-        
-        <button class="retry-btn" id="retryBtn" onclick="window.location.replace('upload.html')">🔄 Go Back & Retry</button>
-    </div>
-
-    <script>
-        const unloadWarning = function (e) {
-            const msg = 'Are you sure you want to leave? Your progress will be lost.';
-            e.returnValue = msg;
-            return msg;
-        };
-        window.addEventListener('beforeunload', unloadWarning);
-
-        document.addEventListener("DOMContentLoaded", async () => {
-            const standardFile = sessionStorage.getItem('meditender_standard_file');
-            const vendorsRaw = sessionStorage.getItem('meditender_vendors');
-            
-            const statusText = document.getElementById('processStatus');
-            const progressWrapper = document.getElementById('progressWrapper');
-            const progressFill = document.getElementById('progressFill');
-            const retryBtn = document.getElementById('retryBtn');
-            const spinnerWrapper = document.getElementById('spinnerWrapper');
-            const mainTitle = document.getElementById('mainTitle');
-
-            function showErrorState(message) {
-                window.removeEventListener('beforeunload', unloadWarning);
-                statusText.innerText = message;
-                statusText.style.color = "#dc2626";
-                mainTitle.innerText = "Analysis Failed";
-                spinnerWrapper.style.display = 'none';
-                progressWrapper.style.display = 'none';
-                retryBtn.style.display = 'inline-block'; 
-                
+        <script>
+            if (!sessionStorage.getItem("jwt_token")) {
+                window.location.replace("login.html");
             }
+            const unloadWarning = function (e) {
+                const msg =
+                    "Are you sure you want to leave? Your progress will be lost.";
+                e.returnValue = msg;
+                return msg;
+            };
+            window.addEventListener("beforeunload", unloadWarning);
 
-            if (!standardFile || !vendorsRaw) {
-                showErrorState("Error: Missing data from upload step.");
-                return;
-            }
+            document.addEventListener("DOMContentLoaded", async () => {
+                const standardFile = sessionStorage.getItem(
+                    "meditender_standard_file",
+                );
+                const vendorsRaw = sessionStorage.getItem("meditender_vendors");
 
-            const vendors = JSON.parse(vendorsRaw);
-            progressWrapper.style.display = 'block';
+                const statusText = document.getElementById("processStatus");
+                const progressWrapper =
+                    document.getElementById("progressWrapper");
+                const progressFill = document.getElementById("progressFill");
+                const retryBtn = document.getElementById("retryBtn");
+                const spinnerWrapper =
+                    document.getElementById("spinnerWrapper");
+                const mainTitle = document.getElementById("mainTitle");
 
-            try {
-                progressFill.style.width = '10%';
-                progressFill.innerText = '10%';
-                statusText.innerText = "Phase 1: Auto-extracting mandatory specifications from Tender Standard...";
-                
-                let extractRes = await fetch(`http://localhost:5172/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=1`);                
-                if (!extractRes.ok) throw new Error(`API Error: ${await extractRes.text()}`);
-                
-                let extractData = await extractRes.json();
-                let requirements = extractData.requirements;
-
-                if (!requirements || requirements.length === 0) {
-                    throw new Error("AI could not find any requirements in the document.");
+                function showErrorState(message) {
+                    window.removeEventListener("beforeunload", unloadWarning);
+                    statusText.innerText = message;
+                    statusText.style.color = "#dc2626";
+                    mainTitle.innerText = "Analysis Failed";
+                    spinnerWrapper.style.display = "none";
+                    progressWrapper.style.display = "none";
+                    retryBtn.style.display = "inline-block";
                 }
 
-                progressFill.style.width = '30%';
-                progressFill.innerText = '30%';
-                statusText.innerText = `Phase 2: Semantic matching and comparing ${vendors.length} vendors... (This may take a few minutes)`;
-                
-                let simulatedProgress = 30;
-                let progressInterval = setInterval(() => {
-                    if (simulatedProgress < 95) { 
-                        simulatedProgress += 1;
-                        progressFill.style.width = simulatedProgress + '%';
-                        progressFill.innerText = simulatedProgress + '%';
+                if (!standardFile || !vendorsRaw) {
+                    showErrorState("Error: Missing data from upload step.");
+                    return;
+                }
+
+                const vendors = JSON.parse(vendorsRaw);
+                progressWrapper.style.display = "block";
+
+                try {
+                    progressFill.style.width = "10%";
+                    progressFill.innerText = "10%";
+                    statusText.innerText =
+                        "Phase 1: Auto-extracting mandatory specifications from Tender Standard...";
+
+                    let extractRes = await fetch(
+                        `http://localhost:5172/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=1`,
+                        {
+                            headers: { Authorization: `Bearer ${token}` },
+                        },
+                    );
+                    if (!extractRes.ok)
+                        throw new Error(
+                            `API Error: ${await extractRes.text()}`,
+                        );
+
+                    let extractData = await extractRes.json();
+                    let requirements = extractData.requirements;
+
+                    if (!requirements || requirements.length === 0) {
+                        throw new Error(
+                            "AI could not find any requirements in the document.",
+                        );
                     }
-                }, 2000);
 
-                let compareRes = await fetch('http://localhost:5172/api/Document/compare-vendors', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tenderId: 1, vendorNames: vendors }) 
-                });
+                    progressFill.style.width = "30%";
+                    progressFill.innerText = "30%";
+                    statusText.innerText = `Phase 2: Semantic matching and comparing ${vendors.length} vendors... (This may take a few minutes)`;
 
-                clearInterval(progressInterval);
+                    let simulatedProgress = 30;
+                    let progressInterval = setInterval(() => {
+                        if (simulatedProgress < 95) {
+                            simulatedProgress += 1;
+                            progressFill.style.width = simulatedProgress + "%";
+                            progressFill.innerText = simulatedProgress + "%";
+                        }
+                    }, 2000);
 
-                if (!compareRes.ok) throw new Error(`Comparison API Error: ${await compareRes.text()}`);
-                
-                let evaluations = await compareRes.json();
+                    let compareRes = await fetch(
+                        "http://localhost:5172/api/Document/compare-vendors",
+                        {
+                            method: "POST",
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                tenderId: 1,
+                                vendorNames: vendors,
+                            }),
+                        },
+                    );
 
-                progressFill.style.width = '100%';
-                progressFill.innerText = '100%';
-                sessionStorage.setItem('meditender_evaluations', JSON.stringify(evaluations));
-                
-                statusText.innerText = "Analysis Complete! Redirecting to Decision Matrix...";
-                window.onbeforeunload = null; 
-                
-                setTimeout(() => {
-                    window.location.replace('dashboard.html'); 
-                }, 1000);
+                    clearInterval(progressInterval);
 
-            } catch (err) {
-                showErrorState("System Error: " + err.message);
-            }
-        });
-    </script>
-</body>
+                    if (!compareRes.ok)
+                        throw new Error(
+                            `Comparison API Error: ${await compareRes.text()}`,
+                        );
+
+                    let evaluations = await compareRes.json();
+
+                    progressFill.style.width = "100%";
+                    progressFill.innerText = "100%";
+                    sessionStorage.setItem(
+                        "meditender_evaluations",
+                        JSON.stringify(evaluations),
+                    );
+
+                    statusText.innerText =
+                        "Analysis Complete! Redirecting to Decision Matrix...";
+                    window.onbeforeunload = null;
+
+                    setTimeout(() => {
+                        window.location.replace("dashboard.html");
+                    }, 1000);
+                } catch (err) {
+                    showErrorState("System Error: " + err.message);
+                }
+            });
+        </script>
+    </body>
 </html>
