@@ -4,6 +4,7 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>MediProcure AI - Upload Documents</title>
+        <script src="config.js"></script>
         <style>
             body {
                 font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -576,7 +577,7 @@
                     progressContainer.style.display = "block";
 
                     const quotaRes = await fetch(
-                        "http://localhost:5172/api/Document/consume-quota",
+                        "${CONFIG.API_BASE_URL}/api/Document/consume-quota",
                         {
                             method: "POST",
                             headers: {
@@ -622,7 +623,7 @@
                     stdFormData.append("tenderId", 1);
 
                     let res = await fetch(
-                        "http://localhost:5172/api/Document/upload-pdf",
+                        "${CONFIG.API_BASE_URL}/api/Document/upload-pdf",
                         {
                             method: "POST",
                             headers: {
@@ -653,7 +654,7 @@
                         vTechFormData.append("tenderId", 1);
 
                         let vTechRes = await fetch(
-                            "http://localhost:5172/api/Document/upload-pdf",
+                            "${CONFIG.API_BASE_URL}/api/Document/upload-pdf",
                             {
                                 method: "POST",
                                 headers: {
@@ -679,7 +680,7 @@
                         vFinFormData.append("tenderId", 1);
 
                         let vFinRes = await fetch(
-                            "http://localhost:5172/api/Document/upload-pdf",
+                            "${CONFIG.API_BASE_URL}/api/Document/upload-pdf",
                             {
                                 method: "POST",
                                 headers: {

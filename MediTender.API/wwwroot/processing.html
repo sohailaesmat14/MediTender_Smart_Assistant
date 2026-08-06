@@ -4,6 +4,7 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>MediProcure AI - Processing</title>
+        <script src="config.js"></script>
         <style>
             body {
                 font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -255,7 +256,7 @@
                         "Phase 1: Auto-extracting mandatory specifications from Tender Standard...";
 
                     let extractRes = await fetch(
-                        `http://localhost:5172/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=1`,
+                        `${CONFIG.API_BASE_URL}/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=1`,
                         {
                             headers: { Authorization: `Bearer ${token}` },
                         },
@@ -288,7 +289,7 @@
                     }, 2000);
 
                     let compareRes = await fetch(
-                        "http://localhost:5172/api/Document/compare-vendors",
+                        "${CONFIG.API_BASE_URL}/api/Document/compare-vendors",
                         {
                             method: "POST",
                             headers: { 

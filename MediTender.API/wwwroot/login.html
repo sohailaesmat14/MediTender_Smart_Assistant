@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediProcure AI - Login</title>
+    <script src="config.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f7f9; display: flex; justify-content: center; align-items: center; height: 100vh; }
         .login-container { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); width: 100%; max-width: 400px; text-align: center; }
@@ -36,7 +37,7 @@
             const errorMsg = document.getElementById('errorMsg');
 
             try {
-                const response = await fetch('http://localhost:5172/api/Auth/login', {
+                const response = await fetch('${CONFIG.API_BASE_URL}/api/Auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username: user, password: pass })
