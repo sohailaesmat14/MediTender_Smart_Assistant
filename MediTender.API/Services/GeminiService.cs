@@ -11,15 +11,16 @@ namespace MediTender.API.Services
 {
     public class GeminiService : IGeminiService
     {
-        private readonly string _googleApiKey;
-        private readonly string _chatModel;
         private readonly HttpClient _httpClient;
+        private readonly string _googleApiKey;
+        private readonly string _chatModel = "gemini-flash-latest";
+        private readonly ILogger<GeminiService> _logger;
 
-        public GeminiService(IConfiguration config, HttpClient httpClient)
+        public GeminiService(HttpClient httpClient, IConfiguration configuration, ILogger<GeminiService> logger) 
         {
-            _googleApiKey = config["Gemini:ApiKey"]?.Trim() ?? throw new Exception("Missing API Key");
-            _chatModel = config["Gemini:ChatModel"]?.Trim() ?? "gemini-flash-latest";
+            _googleApiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API Key is missing in appsettings.json!");
             _httpClient = httpClient;
+            _logger = logger; 
         }
 
         public async Task<string> GenerateChatResponseAsync(string prompt, CancellationToken cancellationToken = default)
@@ -28,35 +29,16 @@ namespace MediTender.API.Services
             var payload = new { contents = new[] { new { parts = new[] { new { text = prompt } } } } };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-            int maxRetries = 5;
-            for (int i = 0; i < maxRetries; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var response = await _httpClient.PostAsync(url, content, cancellationToken);
-                var responseString = await response.Content.ReadAsStringAsync();
+            cancellationToken.ThrowIfCancellationRequested();
 
-                if (response.IsSuccessStatusCode)
-                {
-                    using var doc = JsonDocument.Parse(responseString);
-                    return doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? "";
-                }
+            var response = await _httpClient.PostAsync(url, content, cancellationToken);
+            
+            response.EnsureSuccessStatusCode();
 
-                if ((int)response.StatusCode == 429 || (int)response.StatusCode == 503)
-                {
-                    if (i == maxRetries - 1) 
-                        throw new Exception($"API Unavailable or Rate Limit Exceeded after {maxRetries} attempts.");
-                    
-                    string issue = (int)response.StatusCode == 429 ? "Rate Limit Hit" : "High Demand 503";
-                    Console.WriteLine($"[{issue} - Chat] Waiting 35 seconds before retry {i + 1}...");
-                    await Task.Delay(35000);
-                    continue; 
-                }
-
-                Console.WriteLine($"[Google API Error] {responseString}");
-                throw new Exception($"Gemini API Error: {responseString}");
-            }
-            return "";
-        }
+            var responseString = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(responseString);
+            return doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString() ?? "";
+        }   
 
         public async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
         {
@@ -64,101 +46,52 @@ namespace MediTender.API.Services
             var payload = new { model = "models/gemini-embedding-001", content = new { parts = new[] { new { text = text } } } };
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-            int maxRetries = 5;
-            for (int i = 0; i < maxRetries; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var response = await _httpClient.PostAsync(url, content, cancellationToken);
-                var responseString = await response.Content.ReadAsStringAsync();
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    using var doc = JsonDocument.Parse(responseString);
-                    return doc.RootElement.GetProperty("embedding").GetProperty("values").EnumerateArray().Select(v => v.GetSingle()).ToArray();
-                }
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            var response = await _httpClient.PostAsync(url, content, cancellationToken);
+            
+            response.EnsureSuccessStatusCode();
 
-                if ((int)response.StatusCode == 429 || (int)response.StatusCode == 503)
-                {
-                    if (i == maxRetries - 1) 
-                        throw new Exception($"API Unavailable or Rate Limit Exceeded for Embeddings.");
-                    
-                    string issue = (int)response.StatusCode == 429 ? "Rate Limit Hit" : "High Demand 503";
-                    Console.WriteLine($"[{issue} - Embedding] Waiting 35 seconds before retry {i + 1}...");
-                    await Task.Delay(35000, cancellationToken);
-                    continue;
-                }
-
-                Console.WriteLine($"[Google API Error] {responseString}");
-                throw new Exception($"Google API Error ({(int)response.StatusCode}): {responseString}");
-            }
-            return Array.Empty<float>();
+            var responseString = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(responseString);
+            return doc.RootElement.GetProperty("embedding").GetProperty("values").EnumerateArray().Select(v => v.GetSingle()).ToArray();
         }
-
         public async Task<List<float[]>> GetEmbeddingsBatchAsync(List<string> texts, CancellationToken cancellationToken = default)
         {
-            if (texts == null || !texts.Any()) return new List<float[]>();
-
             var allEmbeddings = new List<float[]>();
-            int maxBatchSize = 15; 
-            for (int chunkIndex = 0; chunkIndex < texts.Count; chunkIndex += maxBatchSize)
+            int batchSize = 15;
+
+            for (int i = 0; i < texts.Count; i += batchSize)
             {
-                var currentChunkBatch = texts.Skip(chunkIndex).Take(maxBatchSize).ToList();
+                var batch = texts.Skip(i).Take(batchSize).ToList();
+                
+                var requests = batch.Select(text => new { text = text }).ToList();
+                var payload = new 
+                { 
+                    requests = requests.Select(r => new { model = "models/gemini-embedding-001", content = new { parts = new[] { new { text = r.text } } } }) 
+                };
 
                 var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={_googleApiKey}";
-
-                var requests = currentChunkBatch.Select(text => new
-                {
-                    model = "models/gemini-embedding-001",
-                    content = new { parts = new[] { new { text = text } } }
-                }).ToArray();
-
-                var payload = new { requests = requests };
                 var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-                int maxRetries = 5;
-                bool success = false;
+                cancellationToken.ThrowIfCancellationRequested();
 
-                for (int i = 0; i < maxRetries; i++)
+                var response = await _httpClient.PostAsync(url, content, cancellationToken);
+                
+                response.EnsureSuccessStatusCode();
+
+                var responseString = await response.Content.ReadAsStringAsync(cancellationToken);
+                using var doc = JsonDocument.Parse(responseString);
+                
+                foreach (var embedding in doc.RootElement.GetProperty("embeddings").EnumerateArray())
                 {
-                    var response = await _httpClient.PostAsync(url, content);
-                    var responseString = await response.Content.ReadAsStringAsync();
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        using var doc = JsonDocument.Parse(responseString);
-                        foreach (var element in doc.RootElement.GetProperty("embeddings").EnumerateArray())
-                        {
-                            allEmbeddings.Add(element.GetProperty("values").EnumerateArray().Select(v => v.GetSingle()).ToArray());
-                        }
-                        success = true;
-                        break;
-                    }
-
-                    if ((int)response.StatusCode == 429 || (int)response.StatusCode == 503)
-                    {
-                        if (i == maxRetries - 1) 
-                            throw new Exception($"API Unavailable or Rate Limit Exceeded for Batch Embeddings.");
-                        
-                        string issue = (int)response.StatusCode == 429 ? "Rate Limit Hit" : "High Demand 503";
-                        Console.WriteLine($"[{issue} - Batch Embedding] Waiting 35 seconds before retry {i + 1}...");
-                        await Task.Delay(60000);
-                        continue;
-                    }
-
-                    Console.WriteLine($"[Google API Error] {responseString}");
-                    throw new Exception($"Google API Error ({(int)response.StatusCode}): {responseString}");
+                    allEmbeddings.Add(embedding.GetProperty("values").EnumerateArray().Select(v => v.GetSingle()).ToArray());
                 }
 
-                if (!success) break;
-
-                if (chunkIndex + maxBatchSize < texts.Count)
-                {
-                    Console.WriteLine($"[API Pacing] Sent a batch of 15 successfully. Waiting 5 seconds...");
-                    await Task.Delay(5000); 
-                }
+                await Task.Delay(2000, cancellationToken); 
             }
 
             return allEmbeddings;
-        }
+        }    
     }
 }

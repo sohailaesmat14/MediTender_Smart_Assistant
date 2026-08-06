@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using MediTender.API.Data;
 using MediTender.API.Services;
 using Qdrant.Client;
+using Polly;
+using Polly.Extensions.Http;
 // using Microsoft.SemanticKernel;
 // using Microsoft.SemanticKernel.Connectors.Google;
 
@@ -34,9 +36,24 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlSer
 builder.Services.AddScoped<IRagService, RagService>();
 builder.Services.AddScoped<IComparisonService, ComparisonService>();
 builder.Services.AddScoped<IStandardExtractionService, StandardExtractionService>();
+
 builder.Services.AddHttpClient<IGeminiService, GeminiService>(client =>
 {
     client.Timeout = TimeSpan.FromMinutes(5);
+})
+.AddPolicyHandler((serviceProvider, request) =>
+{
+    var logger = serviceProvider.GetRequiredService<ILogger<GeminiService>>();
+
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        .WaitAndRetryAsync(5, retryAttempt => 
+            TimeSpan.FromSeconds(30 + Math.Pow(2, retryAttempt)),
+            onRetry: (outcome, timespan, retryAttempt, context) =>
+            {
+                logger.LogWarning("Rate limit hit or connection issue. Delaying for {DelaySeconds}s, then making retry {RetryAttempt}.", timespan.TotalSeconds, retryAttempt);
+            });
 });
 
 // var openAiApiKey = builder.Configuration["OpenAI:ApiKey"] ?? throw new ArgumentNullException("OpenAI:ApiKey");

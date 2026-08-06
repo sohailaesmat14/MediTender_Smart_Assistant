@@ -121,8 +121,16 @@
                 document.getElementById('dashboardContent').innerHTML = "<h2 style='text-align:center; color:red;'>No data found. Please run the analysis first.</h2>";
                 return;
             }
-            globalEvaluations = JSON.parse(rawData);
-            generateBIDashboard();
+            
+            try {
+                globalEvaluations = JSON.parse(rawData);
+                generateBIDashboard();
+                
+                setTimeout(populateVendorFilter, 500);
+                
+            } catch (e) {
+                document.getElementById('dashboardContent').innerHTML = "<h2 style='text-align:center; color:red;'>Data Error. Please re-run the analysis.</h2>";
+            }
         });
 
         window.overrideItem = async function(vendorName, reqText) {
@@ -375,7 +383,8 @@
                                     
                                     let actionBtn = ev.finalDecision === 'Pending Manual Review' ? 
                                     `<button onclick="triggerVendorOverrideModal('${escapeForJS(ev.vendorName)}')" style="margin-top:8px; background:#2563eb; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer; font-size:12px; width:100%; font-weight:bold;">✅ Manual Override</button>` : '';
-                                return `<th>
+                                    let statusColor = ev.finalDecision === 'Recommended for Acceptance' ? '#059669' : (ev.finalDecision.includes('Review') ? '#d97706' : '#dc2626');
+                                    return `<th>
                                     <div style="font-size: 16px;">${escapeHTML(ev.vendorName)}</div>
                                     <div style="font-size:12px; font-weight:bold; color: ${statusColor}; margin: 5px 0;">${ev.finalDecision}</div>
                                     <div class="price-tag">${ev.totalPrice > 0 ? ev.totalPrice.toLocaleString() + ' EGP' : 'N/A'}</div>
@@ -394,7 +403,7 @@
                                         ${req.isMandatory ? '<span style="color:red; font-size:12px;">(Mandatory)</span>' : ''}
                                     </td>
                                     ${globalEvaluations.map(ev => {
-                                        const res = req.vendorResults[ev.vendorName];
+                                        const res = req.vendorResults[ev.vendorName] || { status: 'Error', evidence: 'System Error: Data missing from AI response.', score: 0 };
                                         let badgeClass = res.status === 'Met' ? 'status-met' : 
                                                          (res.status === 'Partially Met' ? 'status-partial' : 
                                                          (res.status === 'Not Mentioned' ? 'status-missing' : 'status-notmet'));
@@ -637,7 +646,6 @@
             
             const confirmBtn = document.getElementById('confirmModalBtn');
             
-            // لما يدوس تأكيد، هننادي الـ overrideDecision الأساسية
             confirmBtn.onclick = async function() {
                 modal.style.display = 'none';
                 await overrideDecision(vendorName);
@@ -822,9 +830,7 @@
                 element.style.overflow = originalOverflow;
             });
         }
-
-        // Call this inside generateBIDashboard() at the very end to fill the vendor dropdown
-        setTimeout(populateVendorFilter, 500);
+        
     </script>
 </body>
 </html>

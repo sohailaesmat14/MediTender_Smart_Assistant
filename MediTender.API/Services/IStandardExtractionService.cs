@@ -6,6 +6,6 @@ namespace MediTender.API.Services
 {
     public interface IStandardExtractionService
     {
-        Task<List<Standard>> ExtractRequirementsAsync(string fileName);
+        Task<List<Standard>> ExtractRequirementsAsync(string fileName, int tenderId);
     }
 }

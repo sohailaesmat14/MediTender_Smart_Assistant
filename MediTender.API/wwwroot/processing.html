@@ -61,11 +61,12 @@
     </div>
 
     <script>
-        window.addEventListener('beforeunload', function (e) {
-            const confirmationMessage = 'Are you sure you want to leave? Your progress will be lost.';
-            e.returnValue = confirmationMessage; 
-            return confirmationMessage;
-        });
+        const unloadWarning = function (e) {
+            const msg = 'Are you sure you want to leave? Your progress will be lost.';
+            e.returnValue = msg;
+            return msg;
+        };
+        window.addEventListener('beforeunload', unloadWarning);
 
         document.addEventListener("DOMContentLoaded", async () => {
             const standardFile = sessionStorage.getItem('meditender_standard_file');
@@ -79,7 +80,7 @@
             const mainTitle = document.getElementById('mainTitle');
 
             function showErrorState(message) {
-                window.onbeforeunload = null;
+                window.removeEventListener('beforeunload', unloadWarning);
                 statusText.innerText = message;
                 statusText.style.color = "#dc2626";
                 mainTitle.innerText = "Analysis Failed";
@@ -102,8 +103,7 @@
                 progressFill.innerText = '10%';
                 statusText.innerText = "Phase 1: Auto-extracting mandatory specifications from Tender Standard...";
                 
-                let extractRes = await fetch(`http://localhost:5172/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}`);
-                
+                let extractRes = await fetch(`http://localhost:5172/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=1`);                
                 if (!extractRes.ok) throw new Error(`API Error: ${await extractRes.text()}`);
                 
                 let extractData = await extractRes.json();
@@ -129,7 +129,7 @@
                 let compareRes = await fetch('http://localhost:5172/api/Document/compare-vendors', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tenderId: 1, requirements: requirements, vendorNames: vendors })
+                    body: JSON.stringify({ tenderId: 1, vendorNames: vendors }) 
                 });
 
                 clearInterval(progressInterval);

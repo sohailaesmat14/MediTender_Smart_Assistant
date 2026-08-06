@@ -99,37 +99,21 @@ namespace MediTender.API.Controllers
 
 
         [HttpPost("compare-vendors")]
-        public async Task<IActionResult> CompareVendors([FromBody] MultiComparisonRequest request, [FromServices] IComparisonService comparisonService)
+        public async Task<IActionResult> CompareVendors([FromBody] MultiComparisonRequest request, [FromServices] IComparisonService comparisonService, CancellationToken cancellationToken)
         {
-            if (request.Requirements == null || !request.Requirements.Any())
-                return BadRequest("Requirements list cannot be empty.");
-
             if (request.VendorNames == null || !request.VendorNames.Any())
                 return BadRequest("Vendor names list cannot be empty.");
 
             try
             {
-                // Check if the tender exists, if not, create a default one
-                var tenderExists = await _dbContext.Tenders.AnyAsync(t => t.Id == request.TenderId);
-                if (!tenderExists)
-                {
-                    var defaultTender = new Tender 
-                    { 
-                        Title = "System Generated Tender", 
-                        Description = "Auto-generated for multi-vendor comparison." 
-                    };
-                    
-                    _dbContext.Tenders.Add(defaultTender);
-                    
-                    // Turn on IDENTITY_INSERT if your DB requires specific IDs, 
-                    // or let EF Core assign the ID and update your request.
-                    await _dbContext.SaveChangesAsync();
-                    
-                    // Update the request with the newly generated Tender ID
-                    request.TenderId = defaultTender.Id;
-                }
+                var dbRequirements = await _dbContext.Standards
+                    .Where(s => s.TenderId == request.TenderId)
+                    .ToListAsync(cancellationToken);
 
-                var results = await comparisonService.CompareVendorsAsync(request.TenderId, request.Requirements, request.VendorNames);
+                if (!dbRequirements.Any())
+                    return BadRequest("No standard requirements found for this tender. Please run the extraction phase first.");
+
+                var results = await comparisonService.CompareVendorsAsync(request.TenderId, dbRequirements, request.VendorNames, cancellationToken);
                 return Ok(results);
             }
             catch (OperationCanceledException)
@@ -141,23 +125,29 @@ namespace MediTender.API.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
-
         public class MultiComparisonRequest 
         { 
             public int TenderId { get; set; } = 1; 
-            public List<Standard> Requirements { get; set; } = new(); 
+           
             public List<string> VendorNames { get; set; } = new();
         }
 
         [HttpGet("extract-standard")]
-        public async Task<IActionResult> ExtractStandardRequirements([FromQuery] string fileName, [FromServices] IStandardExtractionService extractionService)
+        public async Task<IActionResult> ExtractStandardRequirements([FromQuery] string fileName, [FromQuery] int tenderId, [FromServices] IStandardExtractionService extractionService)
         {
             if (string.IsNullOrWhiteSpace(fileName))
                 return BadRequest("File name is required.");
 
             try
             {
-                var requirements = await extractionService.ExtractRequirementsAsync(fileName);
+                var tenderExists = await _dbContext.Tenders.AnyAsync(t => t.Id == tenderId);
+                if (!tenderExists)
+                {
+                    _dbContext.Tenders.Add(new Tender { Id = tenderId, Title = "System Generated Tender", Description = "Auto-generated" });
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                var requirements = await extractionService.ExtractRequirementsAsync(fileName, tenderId);
                 return Ok(new { Requirements = requirements });
             }
             catch (Exception ex)
