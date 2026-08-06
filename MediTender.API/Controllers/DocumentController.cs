@@ -111,6 +111,12 @@ namespace MediTender.API.Controllers
         {
             if (request.VendorNames == null || !request.VendorNames.Any())
                 return BadRequest("Vendor names list cannot be empty.");
+            
+            int cost = request.VendorNames.Count * 15;
+            if (!TryConsumeQuota(cost, out int remaining))
+            {
+                return BadRequest(new { Message = $"❌ Your current balance ({remaining} points) isn't enough. You need ({cost} points)." });
+            }
 
             try
             {
@@ -126,10 +132,12 @@ namespace MediTender.API.Controllers
             }
             catch (OperationCanceledException)
             {
+                RefundQuota(cost); 
                 return StatusCode(499, "Client closed the request.");
             }
             catch (Exception ex)
             {
+                RefundQuota(cost); 
                 _logger.LogError(ex, "Error during multi-vendor comparison for Tender: {TenderId}", request.TenderId);
                 return StatusCode(500, new { Message = "An internal server error occurred during vendor comparison. Please review the logs." });
             }
@@ -171,15 +179,26 @@ namespace MediTender.API.Controllers
             try
             {
                 _dbContext.VendorOffers.RemoveRange(_dbContext.VendorOffers);
-                _dbContext.EvaluationDetails.RemoveRange(_dbContext.EvaluationDetails);
-                _dbContext.OfferEvaluations.RemoveRange(_dbContext.OfferEvaluations);
-                _dbContext.Tenders.RemoveRange(_dbContext.Tenders);
-                _dbContext.TenderInteractions.RemoveRange(_dbContext.TenderInteractions);
-                await _dbContext.SaveChangesAsync();
+        _dbContext.EvaluationDetails.RemoveRange(_dbContext.EvaluationDetails);
+        _dbContext.OfferEvaluations.RemoveRange(_dbContext.OfferEvaluations);
+        _dbContext.Tenders.RemoveRange(_dbContext.Tenders);
+        _dbContext.TenderInteractions.RemoveRange(_dbContext.TenderInteractions);
+        await _dbContext.SaveChangesAsync();
 
-                await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('Tenders', RESEED, 0)");
-                await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('VendorOffers', RESEED, 0)");
-                await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('OfferEvaluations', RESEED, 0)");
+                if (_dbContext.Database.IsSqlServer())
+                {
+                    await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('Tenders', RESEED, 0)");
+                    await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('VendorOffers', RESEED, 0)");
+                    await _dbContext.Database.ExecuteSqlRawAsync("DBCC CHECKIDENT ('OfferEvaluations', RESEED, 0)");
+                }
+                else if (_dbContext.Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL") 
+                {
+                    await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE \"Tenders\", \"VendorOffers\", \"OfferEvaluations\" RESTART IDENTITY CASCADE");
+                }
+                else if (_dbContext.Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite") 
+                {
+                    await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence WHERE name IN ('Tenders', 'VendorOffers', 'OfferEvaluations')");
+                }
 
                 await qdrantClient.DeleteCollectionAsync("meditender_collection_v2");
                 await qdrantClient.CreateCollectionAsync("meditender_collection_v2", 
@@ -205,32 +224,70 @@ namespace MediTender.API.Controllers
             public string VendorName { get; set; } = string.Empty;
             public int TenderId { get; set; } = 1;
         }
-        private static int _dailyQuota = 200;
+        
+
+        private static readonly object _quotaLock = new object();
+        private static readonly Dictionary<string, int> _userQuotas = new();
         private static DateTime _lastResetDate = DateTime.UtcNow.Date;
 
-        [HttpPost("consume-quota")]
-        public IActionResult ConsumeQuota([FromBody] QuotaRequest request)
+        private string GetCurrentUsername()
         {
-            if (DateTime.UtcNow.Date > _lastResetDate)
-            {
-                _dailyQuota = 200;
-                _lastResetDate = DateTime.UtcNow.Date;
-            }
-
-            int expectedCost = request.VendorCount * 15;
-
-            if (_dailyQuota >= expectedCost)
-            {
-                _dailyQuota -= expectedCost;
-                return Ok(new { Success = true, RemainingQuota = _dailyQuota });
-            }
-
-            return BadRequest(new { 
-                Success = false, 
-                Message = $"❌ Your current balance ({_dailyQuota} points) isn't enough. You need ({expectedCost} points)." 
-            });
+            return User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier || c.Type == "sub")?.Value ?? "committee";
         }
 
+        private bool TryConsumeQuota(int cost, out int remaining)
+        {
+            lock (_quotaLock)
+            {
+                if (DateTime.UtcNow.Date > _lastResetDate)
+                {
+                    _userQuotas.Clear();
+                    _lastResetDate = DateTime.UtcNow.Date;
+                }
+
+                string username = GetCurrentUsername();
+                if (!_userQuotas.ContainsKey(username))
+                    _userQuotas[username] = 200; 
+
+                if (_userQuotas[username] >= cost)
+                {
+                    _userQuotas[username] -= cost;
+                    remaining = _userQuotas[username];
+                    return true;
+                }
+
+                remaining = _userQuotas[username];
+                return false;
+            }
+        }
+
+        private void RefundQuota(int amount)
+        {
+            lock (_quotaLock)
+            {
+                string username = GetCurrentUsername();
+                if (_userQuotas.ContainsKey(username))
+                {
+                    _userQuotas[username] += amount;
+                }
+            }
+        }
+
+        [HttpPost("check-quota")]
+        public IActionResult CheckQuota([FromBody] QuotaRequest request)
+        {
+            int cost = request.VendorCount * 15;
+            lock (_quotaLock)
+            {
+                string username = GetCurrentUsername();
+                if (!_userQuotas.ContainsKey(username)) _userQuotas[username] = 200;
+                
+                if (_userQuotas[username] >= cost)
+                    return Ok(new { Success = true, RemainingQuota = _userQuotas[username] });
+                    
+                return BadRequest(new { Success = false, Message = $"❌ Your current balance ({_userQuotas[username]} points) isn't enough. You need ({cost} points)." });
+            }
+        }
         public class QuotaRequest
         {
             public int VendorCount { get; set; }

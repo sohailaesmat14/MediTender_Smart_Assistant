@@ -37,7 +37,7 @@
             const errorMsg = document.getElementById('errorMsg');
 
             try {
-                const response = await fetch('${CONFIG.API_BASE_URL}/api/Auth/login', {
+                const response = await fetch('http://localhost:5172/api/Auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username: user, password: pass })

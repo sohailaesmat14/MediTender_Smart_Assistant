@@ -577,7 +577,7 @@
                     progressContainer.style.display = "block";
 
                     const quotaRes = await fetch(
-                        "${CONFIG.API_BASE_URL}/api/Document/consume-quota",
+                        "http://localhost:5172/api/Document/check-quota",
                         {
                             method: "POST",
                             headers: {
@@ -623,7 +623,7 @@
                     stdFormData.append("tenderId", 1);
 
                     let res = await fetch(
-                        "${CONFIG.API_BASE_URL}/api/Document/upload-pdf",
+                        "http://localhost:5172/api/Document/upload-pdf",
                         {
                             method: "POST",
                             headers: {
@@ -654,7 +654,7 @@
                         vTechFormData.append("tenderId", 1);
 
                         let vTechRes = await fetch(
-                            "${CONFIG.API_BASE_URL}/api/Document/upload-pdf",
+                            "http://localhost:5172/api/Document/upload-pdf",
                             {
                                 method: "POST",
                                 headers: {
@@ -680,7 +680,7 @@
                         vFinFormData.append("tenderId", 1);
 
                         let vFinRes = await fetch(
-                            "${CONFIG.API_BASE_URL}/api/Document/upload-pdf",
+                            "http://localhost:5172/api/Document/upload-pdf",
                             {
                                 method: "POST",
                                 headers: {

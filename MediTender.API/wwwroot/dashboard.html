@@ -926,7 +926,7 @@
 
                 try {
                     const response = await fetch(
-                        "${CONFIG.API_BASE_URL}/api/Document/override-vendor-decision",
+                        "http://localhost:5172/api/Document/override-vendor-decision",
                         {
                             method: "POST",
                             headers: {
@@ -1005,7 +1005,7 @@
 
                 try {
                     const response = await fetch(
-                        "${CONFIG.API_BASE_URL}/api/Document/override-evaluation",
+                        "http://localhost:5172/api/Document/override-evaluation",
                         {
                             method: "POST",
                             headers: {

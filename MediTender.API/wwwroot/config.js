@@ -1,3 +1,3 @@
 const CONFIG = {
-    API_BASE_URL: "${CONFIG.API_BASE_URL}" 
+    API_BASE_URL: "http://localhost:5172" 
 };

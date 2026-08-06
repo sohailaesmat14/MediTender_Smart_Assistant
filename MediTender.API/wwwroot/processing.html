@@ -256,7 +256,7 @@
                         "Phase 1: Auto-extracting mandatory specifications from Tender Standard...";
 
                     let extractRes = await fetch(
-                        `${CONFIG.API_BASE_URL}/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=1`,
+                        `http://localhost:5172/api/Document/extract-standard?fileName=${encodeURIComponent(standardFile)}&tenderId=1`,
                         {
                             headers: { Authorization: `Bearer ${token}` },
                         },
@@ -289,7 +289,7 @@
                     }, 2000);
 
                     let compareRes = await fetch(
-                        "${CONFIG.API_BASE_URL}/api/Document/compare-vendors",
+                        "http://localhost:5172/api/Document/compare-vendors",
                         {
                             method: "POST",
                             headers: { 
